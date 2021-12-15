@@ -1,7 +1,3 @@
-/**
- * 
- */
-package Server;
 
 /**
  * @author nedo1993
