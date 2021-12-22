@@ -7,6 +7,8 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.TreeSet;
 
+import com.fasterxml.jackson.annotation.JsonValue;
+
 /**
  * @author nedo1993
  *
@@ -42,14 +44,15 @@ public class Tags implements Tags_Interface {
 	/*
 	 * @Effects: returns all tags as a string
 	 */
+	@JsonValue
 	public String toString() {
-		return tags.toString();
+		return String.join(" ", this.tags);
 	}
 	
 	/*
 	 * @Effects: returns an iterator
 	 */
 	public Iterator<String> iterator(){
-		return tags.iterator();
+		return this.tags.iterator();
 	}
 }

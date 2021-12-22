@@ -7,5 +7,9 @@
 			<attribute name="module" value="true"/>
 		</attributes>
 	</classpathentry>
+	<classpathentry kind="lib" path="/home/nedo1993/Desktop/WINSOME/src/JAR_FILES/spring-security-crypto-5.6.0.jar"/>
+	<classpathentry kind="lib" path="/home/nedo1993/Desktop/WINSOME/src/JAR_FILES/jackson-databind-2.13.0.jar"/>
+	<classpathentry kind="lib" path="/home/nedo1993/Desktop/WINSOME/src/JAR_FILES/jackson-annotations-2.13.0.jar"/>
+	<classpathentry kind="lib" path="/home/nedo1993/Desktop/WINSOME/src/JAR_FILES/jackson-core-2.13.0.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
