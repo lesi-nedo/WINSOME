@@ -7,10 +7,10 @@ src/Server/ssl/cert-file
 src/Server/ssl/cert-signed
 src/Server/ssl/KeyStore.jks
 src/Server/ssl/truststore.jks
-src/Client/ssl/ca-cert
-src/Client/ssl/ca-cert.srl
-src/Client/ssl/ca-key
-src/Client/ssl/cert-file
-src/CLient/ssl/cert-signed
+src/Client/ssl/ca-cert-c
+src/Client/ssl/ca-cert-c.srl
+src/Client/ssl/ca-key-c
+src/Client/ssl/cert-file-c
+src/Client/ssl/cert-signed-c
 src/Client/ssl/KeyStore.jks
 src/Client/ssl/truststore.jks
