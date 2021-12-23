@@ -11,3 +11,17 @@ This is the project of Laboratorio di Reti.
 
 ## Feedback
 Any comments or bugs report is welcome
+
+## Note
+To use you need to add the Root CA server certificate to the java cacerts key store.
+
+The Root CA is located in `src/Server/ssl/` and the name is: `ca-cert`.
+
+To add the certificate to the cacerts go to the location `eg: "C:\Program Files\Java\jdk1.8.0_221\jre\lib\security` where the cacerts is present and open the command prompt to execute the following command.
+
+`keytool -import -alias aliasName* -file pathToRootCA.crt** -keystore cacerts`
+
+Password is `changeit`
+
+* any name
+** `SOME PATH/src/Server/ssl/ca-cert`
