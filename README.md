@@ -28,11 +28,13 @@ You'll need to create and sign a certificate, to do that go to the directory `/s
 6. Import cert-signed to keystore:  
 `keytool -keystore KeyStore.jks -alias bmc -import -file cert-signed`  
 7. Add ca-cert into the truststore:  
-`keytool -keystore truststore.jks -alias bmc -import -file ca-cert`  
-Now go to the directory `/src/Client/ssl` and repeat the steps 1 through 7 (Choose a different name for the files eg: ca-cert-c).  
-8. Add ca-cert (server certificate) itnto the client trustore:  
+`keytool -keystore truststore.jks -alias bmc -import -file ca-cert`
+  
+Now go to the directory `/src/Client/ssl` and repeat the steps 1 through 7 (Choose a different name for the files eg: ca-cert-c). 
+ 
+8. Add ca-cert (server certificate) itnto the client truststore:  
 `keytool -keystore truststore.jks -alias bmc -import -file ../../Server/ssl/ca-cert`  
-9. Add ca-cert-c (client certificate) into server trustore:  
+9. Add ca-cert-c (client certificate) into server truststore:  
 `keytool -keystore ../../Server/ssl/truststore.jks -alias bmc -import -file ca-cert-c`
   
 To use you need to add the Root CA server certificate (ca-cert) to the java cacerts key store.
