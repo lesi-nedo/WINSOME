@@ -1,2 +1,9 @@
 /bin/
 .token
+ca-cert
+ca-cert.srl
+ca-key
+cert-file
+cert-signed
+KeyStore.jks
+truststore.jks
