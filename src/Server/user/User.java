@@ -5,7 +5,7 @@ package user;
 
 import java.util.Iterator;
 
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
@@ -15,8 +15,7 @@ import sign_in.Tags;
  * @author nedo1993
  *
  */
-@JsonPropertyOrder({"user_name", "hashed_pas", "salt", "tags"})
-@JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
+@JsonPropertyOrder({"user_name", "hashed_password", "salt", "tags"})
 public class User implements User_Interface {
 	/*
 	 * Overview: A class that represents the generic user
@@ -42,14 +41,24 @@ public class User implements User_Interface {
 		this.hashed_pas=hashed_pas;
 	}
 	//@Effects: returns the user name
-	@JsonIgnore
-	public String getUsername() {
+	@JsonGetter
+	public String getUser_name() {
 		return this.user_name;
 	}
 	//@Effects: returns all the tags as a string
-	@JsonIgnore
+	@JsonGetter
 	public String getTags() {
 		return this.tags.toString();
+	}
+	//@Effects: returns the salt used to hash the password
+	@JsonGetter
+	public String getSalt() {
+		return this.salt;
+	}
+	//@Effects: returns the hashe passwords
+	@JsonGetter
+	public String getHashed_password() {
+		return this.hashed_pas;
 	}
 	//@Effects: returns an iterator of all tags
 	@JsonIgnore

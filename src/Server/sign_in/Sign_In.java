@@ -14,6 +14,7 @@ import org.springframework.security.crypto.bcrypt.BCrypt;
 import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.fasterxml.jackson.core.JsonParseException;
 
@@ -29,32 +30,38 @@ public class Sign_In extends UnicastRemoteObject implements Sign_In_Interface {
 	 * 
 	 */
 	private static final long serialVersionUID = 1L;
-	private StringTokenizer token;
-	private Tags tags;
-	private User user;
-	private String salt;
 	private Set<String> usernames;
 	public Sign_In(int port) throws JsonParseException, IllegalArgumentException, IOException, RemoteException {
 		super(port, new SslRMIClientSocketFactory(), new SslRMIServerSocketFactory(null, null, true));
 		this.usernames= ConcurrentHashMap.newKeySet();
-		this.tags=new Tags();
 		User_Data.load_Usernames(this.usernames);
 	}
-	public int register(String username, String password, String tags) throws UsernameAlreadyExistsException, TooManyTagsException {
-		if(username == null || password == null || tags == null)
+	public int register(String username, String password, String tags_arg) throws UsernameAlreadyExistsException, TooManyTagsException {
+		String salt;
+		StringTokenizer token;
+		Tags tags=new Tags();
+		User user;
+		AtomicInteger status=new AtomicInteger(0);
+		
+		if(username == null || password == null || tags_arg == null)
 			throw new IllegalArgumentException("Argument can not be null");
 		if(!this.usernames.add(username))
 			throw new UsernameAlreadyExistsException("User name is taken.");
-		this.token= new StringTokenizer(tags);
-		while(this.token.hasMoreTokens())
-			this.tags.add_tag(this.token.nextToken());
-		this.salt=BCrypt.gensalt();
-		this.user=new User(username, this.tags, this.salt, BCrypt.hashpw(password.getBytes(), this.salt));
+		token= new StringTokenizer(tags_arg, " ");
 		try {
-			User_Data.add_user(this.user);
+			while(token.hasMoreTokens()) {
+				tags.add_tag(token.nextToken());
+			}
+			salt=BCrypt.gensalt();
+			user=new User(username, tags, salt, BCrypt.hashpw(password.getBytes(), salt));
+		
+			User_Data.add_user(user, status);
 		} catch (IllegalArgumentException | IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+		} catch (TooManyTagsException e) {
+			this.usernames.remove(username);
+			throw new TooManyTagsException(e.getMessage());
 		}
 		return Sign_In_Interface.CREATED;
 	}

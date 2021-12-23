@@ -23,4 +23,6 @@ public class StaticNames {
 	public static final String PATH_TO_SSL="src/Server/ssl/";
 	public static final String KEYSTORE_NAME="KeyStore.jks";
 	public static final String TRUSTORE_NAME="truststore.jks";
+	public static final String ALL_USERNAMES_TEMP = "src/Server/User_Data/all_usernames_temp.json";
+	public static final String PROFILES_TEMP = "src/Server/User_Data/profiles_temp";
 }

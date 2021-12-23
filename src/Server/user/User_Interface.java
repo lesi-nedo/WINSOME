@@ -3,7 +3,9 @@ package user;
 import java.util.Iterator;
 
 public interface User_Interface {
-	public String getUsername();
+	public String getUser_name();
 	public String getTags();
 	public Iterator<String> getTagsIter();
+	public String getSalt();
+	public String getHashed_password();
 }
