@@ -35,7 +35,7 @@ public class Tags implements Tags_Interface {
 	public boolean add_tag(String tag) throws TooManyTagsException {
 		if(tag==null) throw new IllegalArgumentException();
 		if(this.num_tags>Tags_Interface.MAX_NUM_OF_TAGS) throw new TooManyTagsException("Maxium number of tags allowed is: " + String.valueOf(Tags_Interface.MAX_NUM_OF_TAGS));
-		if(!this.tags.add(tag))
+		if(!this.tags.add(tag.toLowerCase()))
 			return false;
 		this.num_tags++;
 		return true;

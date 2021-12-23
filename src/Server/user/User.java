@@ -3,7 +3,10 @@
  */
 package user;
 
+import java.util.Iterator;
+
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 import sign_in.Tags;
@@ -39,11 +42,18 @@ public class User implements User_Interface {
 		this.hashed_pas=hashed_pas;
 	}
 	//@Effects: returns the user name
+	@JsonIgnore
 	public String getUsername() {
 		return this.user_name;
 	}
 	//@Effects: returns all the tags as a string
+	@JsonIgnore
 	public String getTags() {
 		return this.tags.toString();
+	}
+	//@Effects: returns an iterator of all tags
+	@JsonIgnore
+	public Iterator<String> getTagsIter(){
+		return this.tags.iterator();
 	}
 }

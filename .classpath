@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
-	<classpathentry excluding="Server/" kind="src" path="src"/>
+	<classpathentry excluding="Server/|Client/" kind="src" path="src"/>
+	<classpathentry kind="src" path="src/Client"/>
 	<classpathentry kind="src" path="src/Server"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER">
 		<attributes>
@@ -11,5 +12,6 @@
 	<classpathentry kind="lib" path="/home/nedo1993/Desktop/WINSOME/src/JAR_FILES/jackson-databind-2.13.0.jar"/>
 	<classpathentry kind="lib" path="/home/nedo1993/Desktop/WINSOME/src/JAR_FILES/jackson-annotations-2.13.0.jar"/>
 	<classpathentry kind="lib" path="/home/nedo1993/Desktop/WINSOME/src/JAR_FILES/jackson-core-2.13.0.jar"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/5"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
