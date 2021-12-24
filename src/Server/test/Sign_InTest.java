@@ -20,6 +20,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import com.fasterxml.jackson.core.JsonFactory;
@@ -86,38 +87,52 @@ class Sign_InTest {
 		System.out.println("Started RMI Registry");
 	}
 
-	@Test
-	@DisplayName("Test with password == null")
-	void testPas() {
+	@DisplayName("Test with password incorrect")
+	@ParameterizedTest
+	@CsvSource({
+		"&test_user&2222, , 'i love Pisa'",
+		"&test_user&444,  ' ', 'this is incorrect'",
+		"&test_user&777, yeah, 'happy now'"
+	})
+	void testPas(String username, String password, String tags) {
 		System.out.println("FirstParallelUnitTest testPas() start => " + Thread.currentThread().getName());
 		Sign_In_Interface serObj = init_client();
 		Exception e = assertThrows(IllegalArgumentException.class, () -> {
-			serObj.register("test" + generateString(5), null, generateString(20) + " " + generateString(6) + " " + generateString(10));
+			serObj.register(username, password, tags);
 		});
-		assertTrue(e.getMessage().contains("Argument can not be null"));
+		assertTrue(e.getMessage().contains("Incorrect argument"));
 		
 	}
 	
-	@Test
-	@DisplayName("Test with username == null")
-	void testUser() {
+	@DisplayName("Test with incorrect username")
+	@ParameterizedTest
+	@CsvSource({
+		"' ', some_password, 'i love Pisa'",
+		",  some_password, 'this is incorrect'",
+		"' &test_user&777', some_password, 'happy now'"
+	})
+	void testUser(String username, String password, String tags) {
 		System.out.println("FirstParallelUnitTest testUser() start => " + Thread.currentThread().getName());
 		Sign_In_Interface serObj = init_client();
 		Exception e = assertThrows(IllegalArgumentException.class, () -> {
-			serObj.register(null, generateString(5), generateString(20) + " " + generateString(6) + " " + generateString(10));
+			serObj.register(username, password, tags);
 		});
-		assertTrue(e.getMessage().contains("Argument can not be null"));
+		assertTrue(e.getMessage().contains("Incorrect argument"));
 	}
 	
-	@Test
-	@DisplayName("Test with tags == null")
-	void testTags() {
+	@DisplayName("Test with incorrect tags")
+	@ParameterizedTest
+	@CsvSource({
+		"&test_user&799, some_password, ' '",
+		"&test_user&777,  some_password,",
+	})
+	void testTags(String username, String password, String tags) {
 		System.out.println("FirstParallelUnitTest testTags() start => " + Thread.currentThread().getName());
 		Sign_In_Interface serObj = init_client();
 		Exception e = assertThrows(IllegalArgumentException.class, () -> {
-			serObj.register("test" + generateString(5), generateString(5), null);
+			serObj.register(username, password, tags);
 		});
-		assertTrue(e.getMessage().contains("Argument can not be null"));
+		assertTrue(e.getMessage().contains("Incorrect argument"));
 	}
 	
 	@Test
@@ -126,7 +141,7 @@ class Sign_InTest {
 		System.out.println("FirstParallelUnitTest testPasLimit() start => " + Thread.currentThread().getName());
 		Sign_In_Interface serObj = init_client();
 		Exception e = assertThrows(TooManyTagsException.class, () -> {
-			serObj.register("test" + generateString(5), generateString(5), generateString(20) + " " + generateString(20) + " " + generateString(20) + " " + generateString(20) + " " + generateString(20) + " " + generateString(20) + " " + generateString(20));
+			serObj.register("&test_user&777" + generateString(5), generateString(5), generateString(20) + " " + generateString(20) + " " + generateString(20) + " " + generateString(20) + " " + generateString(20) + " " + generateString(20) + " " + generateString(20));
 		});
 		assertTrue(e.getMessage().contains("Maxium number of tags allowed is: " + String.valueOf(Tags_Interface.MAX_NUM_OF_TAGS)));
 	}
@@ -137,7 +152,7 @@ class Sign_InTest {
 		System.out.println("FirstParallelUnitTest testCorrect() start => " + Thread.currentThread().getName());
 		Sign_In_Interface serObj = init_client();
 		try {
-			Thread.sleep((new Random()).nextInt(4000)+400);
+			Thread.sleep((new Random()).nextInt(400)+400);
 			assertEquals(Sign_In_Interface.CREATED, serObj.register(username, password, tags));
 		} catch (IllegalArgumentException | RemoteException | UsernameAlreadyExistsException | TooManyTagsException e) {
 			// TODO Auto-generated catch block
@@ -151,7 +166,7 @@ class Sign_InTest {
 	static Stream<Arguments> genUsers(){
 		Stream.Builder<Arguments> builder = Stream.builder();
 		for(int i=0; i < NUM_USERS_TO_TEST; i++) {
-			builder.add(Arguments.arguments("test" + i + generateString(6), generateString(10), generateString(4) + " " + generateString(10) + " " + generateString(20)));
+			builder.add(Arguments.arguments("&test_user&" + i + generateString(6), generateString(10), generateString(4) + " " + generateString(10) + " " + generateString(20)));
 		}
 		return builder.build();
 	}
@@ -170,7 +185,7 @@ class Sign_InTest {
 			StaticNames.USERNAMES_LOCK.lock();
 			while (jsonPar.nextToken()!=JsonToken.END_ARRAY) {
 				String user=jsonPar.getText();
-				if(!user.startsWith("test")) {
+				if(!user.startsWith("&test_user&")) {
 					jsonGen.copyCurrentEvent(jsonPar);
 				} else {
 					User_Data.deleteUserFromProf(user);

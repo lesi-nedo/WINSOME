@@ -30,9 +30,9 @@ public class User_Data {
 			throw new IllegalArgumentException();
 		JsonFactory jsonFact=new JsonFactory();
 		JsonParser jsonPar=jsonFact.createParser(new File(StaticNames.ALL_USERNAMES));
-		JsonToken curr = null;
-		while((curr = jsonPar.nextToken()) != null && curr != JsonToken.END_ARRAY) {
-			String name_taken= jsonPar.getCurrentName();
+		jsonPar.nextToken();
+		while(jsonPar.nextToken() != JsonToken.END_ARRAY) {
+			String name_taken= jsonPar.getText();
 			if(name_taken!=null) usernames.add(name_taken);
 		}
 	}
