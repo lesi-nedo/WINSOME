@@ -36,7 +36,8 @@ Now go to the directory `/src/Client/ssl` and repeat the steps 1 through 7 (Choo
 `keytool -keystore truststore.jks -alias bmc -import -file ../../Server/ssl/ca-cert`  
 9. Add ca-cert-c (client certificate) into server truststore:  
 `keytool -keystore ../../Server/ssl/truststore.jks -alias bmc -import -file ca-cert-c`
-  
+
+Do not forget to update the variable in `src/Server/utils/StaticNames` called `PASS_SSL` with the password used to generate the certificate.  
 Now you'll need to add the Root CA server certificate (ca-cert) to the java cacerts key store.
 
 The Root CA is located in `src/Server/ssl/` and the name is: `ca-cert`.
