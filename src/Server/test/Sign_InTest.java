@@ -3,10 +3,16 @@ package test;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.locks.ReadWriteLock;
 import java.util.stream.Stream;
 
 import javax.rmi.ssl.SslRMIClientSocketFactory;
@@ -23,10 +29,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.core.JsonParseException;
 
 import sign_in.Sign_In;
 import sign_in.Sign_In_Interface;
@@ -41,7 +44,7 @@ import utils.User_Data;
 class Sign_InTest {
 	private static final String REG_NAME= "localhost";
 	private static final String SER_NAME="SIGN_IN";
-	private static final int NUM_USERS_TO_TEST=100;
+	private static final int NUM_USERS_TO_TEST=20;
 	private static final int PORT=2021;
 	private static final String ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 	private static Sign_In_Interface init_client() {
@@ -69,13 +72,27 @@ class Sign_InTest {
 	@BeforeAll
 	public static void setup() {
 		User_Data.setSettings_Server(StaticNames.PATH_TO_SSL);
-
+		ConcurrentMap<String, ReadWriteLock> tags_in_mem=new ConcurrentHashMap<String, ReadWriteLock>();
+		ConcurrentMap<String, ReadWriteLock> usernames=new ConcurrentHashMap<String, ReadWriteLock>();
+		try {
+			User_Data.load_Tags(tags_in_mem);
+			User_Data.load_Usernames(usernames);
+		} catch (JsonParseException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		} catch (IllegalArgumentException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		} catch (IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
 		Sign_In sign_ser;
 		SslRMIClientSocketFactory csf=new SslRMIClientSocketFactory();
 		SslRMIServerSocketFactory ssf=new SslRMIServerSocketFactory(null, null, true);
 		Registry reg;		
 		try {
-			sign_ser=new Sign_In(PORT);
+			sign_ser=new Sign_In(PORT, tags_in_mem, usernames);
 			LocateRegistry.createRegistry(PORT, csf, ssf);
 			reg=LocateRegistry.getRegistry(REG_NAME, PORT, new SslRMIClientSocketFactory());
 			reg.bind(SER_NAME, sign_ser);
@@ -90,9 +107,9 @@ class Sign_InTest {
 	@DisplayName("Test with password incorrect")
 	@ParameterizedTest
 	@CsvSource({
-		"&test_user&2222, , 'i love Pisa'",
-		"&test_user&444,  ' ', 'this is incorrect'",
-		"&test_user&777, yeah, 'happy now'"
+		"&test_user&2222, , '&test_tag&i &test_tag&love &test_tag&Pisa'",
+		"&test_user&444,  ' ', '&test_tag&this &test_tag&is &test_tag&incorrect'",
+		"&test_user&777, yeah, '&test_tag&happy &test_tag&now'"
 	})
 	void testPas(String username, String password, String tags) {
 		System.out.println("FirstParallelUnitTest testPas() start => " + Thread.currentThread().getName());
@@ -104,12 +121,31 @@ class Sign_InTest {
 		
 	}
 	
+	@DisplayName("Test with two same username")
+	@Test
+	void testSameUser() {
+		System.out.println("FirstParallelUnitTest testPas() start => " + Thread.currentThread().getName());
+		Sign_In_Interface serObj = init_client();
+		try {
+			serObj.register("&test_user&1", "some_password", "&test_tag&i &test_tag&love &test_tag&Pisa");
+		} catch (IllegalArgumentException | RemoteException | UsernameAlreadyExistsException
+				| TooManyTagsException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		Exception e = assertThrows(UsernameAlreadyExistsException.class, () -> {
+			serObj.register("&test_user&1", "some_password", "&test_tag&can &test_tag&you &test_tag&hear &test_tag&me");
+		});
+		assertTrue(e.getMessage().contains("User name is taken."));
+		
+	}
+	
 	@DisplayName("Test with incorrect username")
 	@ParameterizedTest
 	@CsvSource({
-		"' ', some_password, 'i love Pisa'",
-		",  some_password, 'this is incorrect'",
-		"' &test_user&777', some_password, 'happy now'"
+		"' ', some_password, '&test_tag&i &test_tag&love &test_tag&Pisa'",
+		",  some_password, '&test_tag&this &test_tag&is &test_tag&incorrect'",
+		"' &test_user&777', some_password, '&test_tag&happy &test_tag&now'"
 	})
 	void testUser(String username, String password, String tags) {
 		System.out.println("FirstParallelUnitTest testUser() start => " + Thread.currentThread().getName());
@@ -141,7 +177,7 @@ class Sign_InTest {
 		System.out.println("FirstParallelUnitTest testPasLimit() start => " + Thread.currentThread().getName());
 		Sign_In_Interface serObj = init_client();
 		Exception e = assertThrows(TooManyTagsException.class, () -> {
-			serObj.register("&test_user&777" + generateString(5), generateString(5), generateString(20) + " " + generateString(20) + " " + generateString(20) + " " + generateString(20) + " " + generateString(20) + " " + generateString(20) + " " + generateString(20));
+			serObj.register("&test_user&777" + generateString(5), generateString(5), "&test_tag&" + generateString(20) + " " + "&test_tag&" + generateString(20) + " " + "&test_tag&" + generateString(20) + " " + "&test_tag&" + generateString(20) + " " + "&test_tag&" + generateString(20) + " " + "&test_tag&" + generateString(20) + " " + "&test_tag&" + generateString(20));
 		});
 		assertTrue(e.getMessage().contains("Maxium number of tags allowed is: " + String.valueOf(Tags_Interface.MAX_NUM_OF_TAGS)));
 	}
@@ -166,43 +202,33 @@ class Sign_InTest {
 	static Stream<Arguments> genUsers(){
 		Stream.Builder<Arguments> builder = Stream.builder();
 		for(int i=0; i < NUM_USERS_TO_TEST; i++) {
-			builder.add(Arguments.arguments("&test_user&" + i + generateString(6), generateString(10), generateString(4) + " " + generateString(10) + " " + generateString(20)));
+			builder.add(Arguments.arguments("&test_user&" + i + generateString(6), generateString(10), "&test_tag&" + generateString(4) + " " + "&test_tag&" + generateString(10) + " " + "&test_tag&" + generateString(20)));
 		}
 		return builder.build();
 	}
 	
-	@AfterAll
-	public static void cleanUp() {
-		try {
-			JsonFactory jsonFact=new JsonFactory();
-			File temp_file=new File(StaticNames.ALL_USERNAMES_TEMP);
-			File curr_file=new File(StaticNames.ALL_USERNAMES);
-			temp_file.createNewFile();
-			JsonGenerator jsonGen = jsonFact.createGenerator(temp_file, StaticNames.ENCODING);
-			JsonParser jsonPar = jsonFact.createParser(curr_file);
-			jsonGen.useDefaultPrettyPrinter();
-			
-			StaticNames.USERNAMES_LOCK.lock();
-			while (jsonPar.nextToken()!=JsonToken.END_ARRAY) {
-				String user=jsonPar.getText();
-				if(!user.startsWith("&test_user&")) {
-					jsonGen.copyCurrentEvent(jsonPar);
-				} else {
-					User_Data.deleteUserFromProf(user);
-					User_Data.deleteDir(new File(StaticNames.PATH_TO_PROFILES+user));
-				}
-				
-			}
-			jsonGen.copyCurrentEvent(jsonPar);
-			jsonGen.flush();
-			curr_file.delete();
-			temp_file.renameTo(new File(StaticNames.ALL_USERNAMES));
-			StaticNames.USERNAMES_LOCK.unlock();
-			jsonGen.close();
-			jsonPar.close();
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
+//	@AfterAll
+//	public static void cleanUp() {
+//		try {
+//			Files.walk(Paths.get(StaticNames.PATH_TO_PROFILES)).forEach(path -> {
+//				if(path.toFile().isDirectory()) {
+//					String file_name=null;
+//					file_name=path.getFileName().toString();
+//					if(file_name.startsWith("&test_user&"))
+//						User_Data.deleteDir(new File(StaticNames.PATH_TO_PROFILES + file_name));
+//				}
+//			});
+//			Files.walk(Paths.get(StaticNames.PATH_TO_TAGS)).forEach(path -> {
+//				if(path.toFile().isDirectory()) {
+//					String file_name=null;
+//					file_name=path.getFileName().toString();
+//					if(file_name.startsWith("&test_tag&"))
+//						User_Data.deleteDir(new File(StaticNames.PATH_TO_TAGS + file_name));
+//				}
+//			});
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//		}
+//	}
 
 }

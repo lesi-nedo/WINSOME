@@ -5,6 +5,7 @@ package sign_in;
 
 import java.util.Iterator;
 import java.util.Set;
+import java.util.StringTokenizer;
 import java.util.TreeSet;
 
 import com.fasterxml.jackson.annotation.JsonValue;
@@ -24,7 +25,16 @@ public class Tags implements Tags_Interface {
 		this.tags=new TreeSet<String>();
 		this.num_tags=0;
 	}
-	
+	public Tags(String tags, String delim) throws TooManyTagsException {
+		this.tags=new TreeSet<String>();
+		StringTokenizer toks = new StringTokenizer(tags, delim);
+		while(toks.hasMoreTokens()) {
+			String token=toks.nextToken();
+			if(num_tags>5)
+				throw new TooManyTagsException("Maxium number of tags allowed is: " + String.valueOf(Tags_Interface.MAX_NUM_OF_TAGS));
+			this.tags.add(token);
+		}
+	}
 	/*
 	 * @Requires: tag != null
 	 * @Throws: IllegalArgumentException, TooManyTagsException

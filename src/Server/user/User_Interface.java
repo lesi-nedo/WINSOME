@@ -6,6 +6,5 @@ public interface User_Interface {
 	public String getUser_name();
 	public String getTags();
 	public Iterator<String> getTagsIter();
-	public String getSalt();
 	public String getHashed_password();
 }
