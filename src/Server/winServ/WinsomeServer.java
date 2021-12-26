@@ -88,7 +88,16 @@ public class WinsomeServer {
 		StringBuilder b_str=new StringBuilder();
 		int byte_read =c_sk.read(bfs);
 		bfs.flip();
-		System.out.println(Operations.list_following("&test_user&1"));
+//		System.out.println(Operations.list_following("&test_user&1", usernames.get("&test_user&1")));
+////		System.out.println(Operations.follow_user("&test_user&1", "&test_user&0erDmkW", usernames.get("&test_user&0erDmkW"), usernames.get("&test_user&0erDmkW")));
+//		System.out.println(Operations.unfollow_user("&test_user&1", "&test_user&0erDmkW", usernames.get("&test_user&0erDmkW"), usernames.get("&test_user&0erDmkW")));
+		System.out.println(Operations.list_following("&test_user&1", usernames.get("&test_user&1")));
+//		System.out.println(Operations.createPost("&test_user&1", "suka", "time to run", usernames.get("&test_user&1")));
+//		System.out.println(Operations.createPost("&test_user&1", "title1", "This is a test post", usernames.get("&test_user&1")));
+//		System.out.println(Operations.createPost("&test_user&1", "title2", "This is a test post", usernames.get("&test_user&1")));
+//		System.out.println(Operations.createPost("&test_user&1", "title3", "This is a test post", usernames.get("&test_user&1")));
+		System.out.println(Operations.view_blog("&test_user&1", usernames.get("&test_user&1")));
+		System.out.println(Operations.show_feed("&test_user&1", usernames.get("&test_user&1")));
 		StringTokenizer tokens = new StringTokenizer(new String(bfs.array()), "\r\n");
 		while(tokens.hasMoreTokens()) {
 			System.out.println(tokens.nextToken());

@@ -6,16 +6,20 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Iterator;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
+import java.util.stream.Stream;
 
 import org.springframework.security.crypto.bcrypt.BCrypt;
 
 import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -29,7 +33,9 @@ public class Operations {
 	/*
 	 * Overview: It holds all the methods useful to the interaction client-server
 	*/
-	
+	private static final int LENGTH_OF_POST_ID=10; 
+	private static final SimpleDateFormat FORMATTER = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+
 	//@Requires: username != null password != null usernames != null logged_users != null
 	//@Throws: IllegalArgumentException, JsonParseException, IOException
 	//@Modifies: logged_users
@@ -109,7 +115,7 @@ public class Operations {
 	//@Requires: username != null usernames != null tags_in_mem != null 
 	//@Throws: IllegalArgumentEsception, IOException, TooManyTagsException
 	//@Effects: lists all users that have at least one tag in common with the user identified by the username parameter
-	//@Returns: a json string in format object with field as usernames and values as array of all tags specified by the user
+	//@Returns: a json string in format object with field as usernames and values as array of all tags specified by the user, null if the user was deleted in meantime
 	//@param username: the name of the user who requests a look up of the users
 	//@param usernames: the concurrent hashMap that holds all usernames registered and locks
 	//@param tags_in_mem: all tags specified by the users
@@ -178,20 +184,28 @@ public class Operations {
 	}
 	
 	
-	//@Requires: username != null
+	//@Requires: username != null, lock !=null
 	//@Throws IllegalArgumentException IOException
 	//@Effects: lists all the users followed by the user
-	//@Returns: the json string in format array with all users
+	//@Returns: the json string in format array with all users, null if the user was deleted in meantime
 	//@param username: the name of the user
-	public static String list_following(String username) throws IOException {
-		if(username == null)
+	public static String list_following(String username, ReadWriteLock lock_r) throws IOException {
+		if(username == null || lock_r == null)
 			throw new IllegalArgumentException();
+		Lock lock=lock_r.readLock();
 		var wrapper = new Object() { String result="["; };
-		Files.walk(Paths.get(StaticNames.PATH_TO_PROFILES+username+"/" +"Following")).skip(1).forEach(path -> {
-			if(path.toFile().isDirectory()) {
-				wrapper.result=wrapper.result.concat(", \""+path.getFileName()+"\"");
-			}
-		});
+		try {
+			lock.lock();
+			if(!(new File(StaticNames.PATH_TO_PROFILES+username)).exists())
+				return null;
+			Stream.of((new File(StaticNames.PATH_TO_PROFILES+username+"/" +"Following")).listFiles()).forEach(path -> {
+				if(path.isDirectory()) {
+					wrapper.result=wrapper.result.concat(", \""+path.getName()+"\"");
+				}
+			});
+		} finally {
+			lock.unlock();
+		}
 		wrapper.result=wrapper.result.replaceFirst(", ", "");
 		wrapper.result=wrapper.result.concat("]");
 		return wrapper.result;
@@ -201,7 +215,7 @@ public class Operations {
 	//@Throws: IllegalArgumentException IOException
 	//@Modifies: the directory some/path/username/Following and some/path/follow_user/Followers
 	//@Effects: creates a symbolic link of the user followed in the folder some/path/username/Following
-	//			and symbolic link of the user's foleder in the folder some/path/follow_user/Followers
+	//			and symbolic link of the user's foleder in some/path/follow_user/Followers
 	//@Returns: Result that holds a boolean, true if the username started to follow follow_user, false otherwise
 	//@param username: the name of the user who wants to follow
 	//@param follow_user: the name of the user who will be followed
@@ -235,6 +249,39 @@ public class Operations {
 			user_to_follow_lock.unlock();
 		}
 	}
+	
+	
+	//@Requires: username != null unfollow_user != null lock_user_r != null lock_user_to_unfollow_r != null
+		//@Throws: IllegalArgumentException IOException
+		//@Modifies: the directory some/path/username/Following and some/path/follow_user/Followers
+		//@Effects: removes the symbolic link of the user followed in the folder some/path/username/Following
+		//			and symbolic link of the user's foleder in some/path/follow_user/Followers
+		//@Returns: Result that holds a boolean, true if the username unfollowed follow_user, false otherwise
+		//@param username: the name of the user who wants to unfollow
+		//@param unfollow_user: the name of the user who will be unfollowed
+		//@param lock_user_r: the Read lock associated to the user's folder
+		//@param lock_usere_to_unfollow_r: the Read lock associated to the followee folder
+		public static Result unfollow_user(String username, String unfollow_user, ReadWriteLock lock_user_r, ReadWriteLock lock_user_to_unfollow_r) throws IOException {
+			if(username == null || unfollow_user==null || lock_user_r == null || lock_user_to_unfollow_r==null)
+				throw new IllegalArgumentException();
+			Lock user_lock = lock_user_r.readLock();
+			Lock user_to_unfollow_lock=lock_user_to_unfollow_r.readLock();
+			try {
+				user_lock.lock();
+				user_to_unfollow_lock.lock();
+				File user_to_unfollow=new File(StaticNames.PATH_TO_PROFILES+unfollow_user+"/"+"Followers/"+username);
+				File user=new File(StaticNames.PATH_TO_PROFILES+username+"/"+"Following/"+unfollow_user);
+				if(!user.exists())
+					return new Result(false, "The user was not a follower of " + unfollow_user);
+				user.delete();
+				user_to_unfollow.delete();
+				return new Result(true, "The user: " + username + " unfollowed " + unfollow_user);
+			} finally {
+				user_lock.unlock();
+				user_to_unfollow_lock.unlock();
+			}
+		}
+		
 	
 	//@Throws: JsonParseException IOException TooManyTagsEsception
 	//@Effects: recovers all tags specified by the user 
@@ -311,5 +358,197 @@ public class Operations {
 			lock.unlock();
 		}
 	}
+	//@Requires: username != null lock != null
+	//@Throws: IllegalArgumentException IOException
+	//@Effects: retrieves all the post published by the user
+	//@Returns: all post as json string in format object, null if the user was delete in meantime
+	//@param username: the name of the user who has published the posts
+	//@param lock: the lock associated to the user's directory
+	public static String view_blog(String username, ReadWriteLock lock_r) throws IOException {
+		if(username == null || lock_r == null)
+			throw new IllegalArgumentException();
+		Lock lock = lock_r.readLock();
+		var wrapper = new Object() { String res="{"; };
+		String dir_name=StaticNames.PATH_TO_PROFILES+username;
+		try {
+			lock.lock();
+			if(!(new File(dir_name).exists())){
+				return null;
+			}
+			dir_name=dir_name+"/"+"Posts";
+			Stream.of((new File(dir_name)).listFiles()).forEach(path -> {
+				if(path.isDirectory() && !Files.isSymbolicLink(path.toPath())) {
+					String temp_res="";
+					int times_f=0;
+
+					wrapper.res=wrapper.res.concat(", \""+path.getName()+"\":{");
+					JsonFactory jsonFact=new JsonFactory();
+					try {
+						JsonParser jsonPar=jsonFact.createParser(new File(StaticNames.PATH_TO_PROFILES+username+"/Posts/"+path.getName()+"/"+StaticNames.NAME_FILE_POST));
+						jsonPar.nextToken();
+						while(jsonPar.nextToken() != JsonToken.END_OBJECT) {
+							String curr=jsonPar.getText();
+							if(curr.equals("author") || curr.equals("title")) {
+								times_f++;
+								temp_res=temp_res.concat(", \""+curr+"\":");
+								jsonPar.nextToken();
+								curr=jsonPar.getText();
+								temp_res=temp_res.concat("\""+curr+"\"");
+								if(times_f==2) break;
+							}
+						}
+						temp_res=temp_res.replaceFirst(", ", "");
+						temp_res=temp_res.concat("}");
+						wrapper.res=wrapper.res.concat(temp_res);
+					} catch (JsonParseException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+			});
+			
+		} finally {
+			lock.unlock();
+		}
+		wrapper.res=wrapper.res.replaceFirst(", ", "");
+		return wrapper.res=wrapper.res.concat("}");
+		
+	}
 	
+	//@Requires: username != null title != null && 1 <= title.length <=20 content != null && 1<=content.length<=500 lock_r != null
+	//@Throws: IllegalArgumentException IOException
+	//@Modifes: creates a new directory in some/path/username/Posts/id_post and a json file
+	//@Effects: creates a new post
+	//@Returns: Result: result == true if was created false otherwise with a reason
+	//@param username: the name of user who wants to create the post
+	//@param title: the title of the post
+	//@para content: the content of the post
+	//@param lock_r: the ReadWrite lock associated to the user's folder
+	public static Result createPost(String username, String title, String content, ReadWriteLock lock_r) throws IOException {
+		if(username == null || title == null || content ==null || lock_r== null)
+			throw new IllegalArgumentException();
+		Lock lock=lock_r.readLock();
+		String id_post=User_Data.generateString(LENGTH_OF_POST_ID);
+		String dir_name=StaticNames.PATH_TO_PROFILES+username;
+		JsonFactory jsonFact=new JsonFactory();
+		JsonGenerator jsonGen = null;
+		
+		title=title.trim();
+		content=content.trim();
+		if(title.length()>20 || content.length() > 500 || title.length()==0 || content.length() == 0)
+			return new Result(false, "At least one passed argument is invalid");
+		try {
+			lock.lock();
+			File file = new File(dir_name);
+			if(!file.exists())
+				return new Result(false, "The user has been removed");
+			while(true) {
+				dir_name=dir_name+"/"+"Posts/"+id_post;
+				file=new File(dir_name);
+				if(!file.exists()) {
+					file.mkdir();
+					break;
+				}
+				id_post=User_Data.generateString(LENGTH_OF_POST_ID);	
+			}
+			file=new File(dir_name+"/"+"Thumbs_up");
+			file.mkdir();
+			file=new File(dir_name+"/"+"Thumbs_down");
+			file.mkdir();
+			file=new File(dir_name+"/" + "Comments");
+			file.mkdir();
+			file=new File(dir_name+"/"+StaticNames.NAME_FILE_POST);
+			file.createNewFile();
+			jsonGen = jsonFact.createGenerator(file, StaticNames.ENCODING);
+			jsonGen.useDefaultPrettyPrinter();
+			jsonGen.writeStartObject();
+			jsonGen.writeStringField("id_post", id_post);
+			jsonGen.writeStringField("author", username);
+			jsonGen.writeStringField("title", title);
+			jsonGen.writeStringField("date", FORMATTER.format(Calendar.getInstance().getTime()));
+			jsonGen.writeStringField("content", content);
+			jsonGen.writeNumberField("thumbs_up", 0);
+			jsonGen.writeNumberField("thumbs_down", 0);
+			jsonGen.writeEndObject();
+			jsonGen.close();
+			return new Result(true, "Post has been succesfully added");
+		} finally {
+			lock.unlock();
+		}
+	}
+	//@Requires: username != null lock_r != null
+	//@Throws: IllegalArgumentException, IOException, JsonParseException
+	//@Effects: retrieves all posts in the own feed
+	//@Returns: a json string in format object with fielnames: id_post, author, content
+	//@param username: name of the user who's feed will be build
+	//@param lock_r: ReadWrite lock associated to each user
+	public static String show_feed(String username, ReadWriteLock lock_r) throws JsonParseException, IOException {
+		if(username == null || lock_r == null)
+			throw new IllegalArgumentException();
+		String dir_name=StaticNames.PATH_TO_PROFILES+username;
+		String res="{";
+		Lock lock = lock_r.readLock();
+		File dir=null;
+		JsonFactory jsonFact = new JsonFactory();
+		JsonParser jsonPar=null;		
+		try {
+			lock.lock();
+			dir=new File(dir_name);
+			if(!dir.exists())
+				return null;
+			dir_name=dir_name+"/"+"Posts";
+			dir=new File(dir_name);
+			File[] files = dir.listFiles();
+			for(File f: files) {
+				int times_f=0;
+				if(f.isDirectory()) {
+					res=res.concat(", \""+f.getName()+"\":{");
+					String temp_res="";
+					dir = new File(dir_name +"/"+f.getName()+"/"+StaticNames.NAME_FILE_POST);
+					jsonPar=jsonFact.createParser(dir);
+					jsonPar.nextToken();
+					while(jsonPar.nextToken()!=JsonToken.END_OBJECT) {
+						String tok=jsonPar.getText();
+						if(tok.equals("author") || tok.equals("title")) {
+							times_f++;
+							temp_res=temp_res.concat(", \""+tok+"\":");
+							jsonPar.nextToken();
+							tok=jsonPar.getText();
+							temp_res=temp_res.concat("\""+tok+"\"");
+						}
+						if(times_f==2) break;
+					}
+					temp_res=temp_res.replaceFirst(", ", "");
+					temp_res=temp_res.concat("}");
+					res=res.concat(temp_res);
+				}
+			}
+			res=res.replaceFirst(", ", "");
+			res=res.concat("}");
+		} finally {
+			lock.unlock();
+		}
+		return res;
+	}
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

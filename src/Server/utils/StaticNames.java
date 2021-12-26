@@ -20,5 +20,6 @@ public class StaticNames {
 	public static final String NAME_FILE_TAG_TEMP="users_temp";
 	public static final String NAME_FILE_FOL_UPD="not_notified.json";
 	public static final String NAME_FILE_FOL_UPD_TEMP="not_notified";
+	public static final String NAME_FILE_POST="post.json";
 
 }

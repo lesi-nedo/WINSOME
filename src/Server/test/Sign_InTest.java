@@ -46,7 +46,6 @@ class Sign_InTest {
 	private static final String SER_NAME="SIGN_IN";
 	private static final int NUM_USERS_TO_TEST=20;
 	private static final int PORT=2021;
-	private static final String ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 	private static Sign_In_Interface init_client() {
 		User_Data.setSettings_Server(StaticNames_Client.PATH_TO_SSL);
 		Sign_In_Interface serObj=null;
@@ -58,16 +57,6 @@ class Sign_InTest {
             e.printStackTrace();
         }
 		return serObj;
-	}
-	public static String generateString(int length) {
-	    Random random = new Random();
-	    StringBuilder builder = new StringBuilder(length);
-
-	    for (int i = 0; i < length; i++) {
-	        builder.append(ALPHABET.charAt(random.nextInt(ALPHABET.length())));
-	    }
-
-	    return builder.toString();
 	}
 	@BeforeAll
 	public static void setup() {
@@ -177,7 +166,7 @@ class Sign_InTest {
 		System.out.println("FirstParallelUnitTest testPasLimit() start => " + Thread.currentThread().getName());
 		Sign_In_Interface serObj = init_client();
 		Exception e = assertThrows(TooManyTagsException.class, () -> {
-			serObj.register("&test_user&777" + generateString(5), generateString(5), "&test_tag&" + generateString(20) + " " + "&test_tag&" + generateString(20) + " " + "&test_tag&" + generateString(20) + " " + "&test_tag&" + generateString(20) + " " + "&test_tag&" + generateString(20) + " " + "&test_tag&" + generateString(20) + " " + "&test_tag&" + generateString(20));
+			serObj.register("&test_user&777" + User_Data.generateString(5), User_Data.generateString(5), "&test_tag&" + User_Data.generateString(20) + " " + "&test_tag&" + User_Data.generateString(20) + " " + "&test_tag&" + User_Data.generateString(20) + " " + "&test_tag&" + User_Data.generateString(20) + " " + "&test_tag&" + User_Data.generateString(20) + " " + "&test_tag&" + User_Data.generateString(20) + " " + "&test_tag&" + User_Data.generateString(20));
 		});
 		assertTrue(e.getMessage().contains("Maxium number of tags allowed is: " + String.valueOf(Tags_Interface.MAX_NUM_OF_TAGS)));
 	}
@@ -202,7 +191,7 @@ class Sign_InTest {
 	static Stream<Arguments> genUsers(){
 		Stream.Builder<Arguments> builder = Stream.builder();
 		for(int i=0; i < NUM_USERS_TO_TEST; i++) {
-			builder.add(Arguments.arguments("&test_user&" + i + generateString(6), generateString(10), "&test_tag&" + generateString(4) + " " + "&test_tag&" + generateString(10) + " " + "&test_tag&" + generateString(20)));
+			builder.add(Arguments.arguments("&test_user&" + i + User_Data.generateString(6), User_Data.generateString(10), "&test_tag&" + User_Data.generateString(4) + " " + "&test_tag&" + User_Data.generateString(10) + " " + "&test_tag&" + User_Data.generateString(20)));
 		}
 		return builder.build();
 	}
@@ -210,10 +199,10 @@ class Sign_InTest {
 //	@AfterAll
 //	public static void cleanUp() {
 //		try {
-//			Files.walk(Paths.get(StaticNames.PATH_TO_PROFILES)).forEach(path -> {
+//			Stream.of((new File((StaticNames.PATH_TO_PROFILES)).listFiles()).forEach(path -> {
 //				if(path.toFile().isDirectory()) {
 //					String file_name=null;
-//					file_name=path.getFileName().toString();
+//					file_name=path.getName().toString();
 //					if(file_name.startsWith("&test_user&"))
 //						User_Data.deleteDir(new File(StaticNames.PATH_TO_PROFILES + file_name));
 //				}

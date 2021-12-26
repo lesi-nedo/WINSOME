@@ -5,11 +5,13 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Iterator;
+import java.util.Random;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.Stream;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -23,7 +25,24 @@ public class User_Data {
 	/*
 	 * Overview: Contains useful static methods 
 	 */
-	
+	private static final String ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+	//@Requires: length > 0
+	//@Throws: IllegalArgumentException
+	//@Effects: creates a pseudo-random string of length "length"
+	//@Returns: a pseudo-random string
+	//@param length: the length of the string to be build
+	public static String generateString(int length) {
+		if(length<0)
+			throw new IllegalArgumentException();
+	    Random random = new Random();
+	    StringBuilder builder = new StringBuilder(length);
+
+	    for (int i = 0; i < length; i++) {
+	        builder.append(ALPHABET.charAt(random.nextInt(ALPHABET.length())));
+	    }
+
+	    return builder.toString();
+	}
 	//@Requires:usernames!=null
 	//@Throws: JsonParseException, IOException, IllegalArgumentException
 	//@Effects: loads all user name from disc to a Set
@@ -32,9 +51,9 @@ public class User_Data {
 	public static void load_Usernames(ConcurrentMap<String, ReadWriteLock> usernames) throws JsonParseException, IOException, IllegalArgumentException {
 		if(usernames == null)
 			throw new IllegalArgumentException();
-		Files.walk(Paths.get(StaticNames.PATH_TO_PROFILES)).skip(1).forEach(path -> {
-			if(path.toFile().isDirectory()) {
-				usernames.putIfAbsent(path.getFileName().toString(), new ReentrantReadWriteLock());
+		Stream.of((new File(StaticNames.PATH_TO_PROFILES)).listFiles()).forEach(path -> {
+			if(path.isDirectory()) {
+				usernames.putIfAbsent(path.getName().toString(), new ReentrantReadWriteLock());
 			}
 		});
 	}
@@ -47,9 +66,9 @@ public class User_Data {
 		public static void load_Tags(ConcurrentMap<String, ReadWriteLock> map_tags) throws JsonParseException, IOException, IllegalArgumentException {
 			if(map_tags == null)
 				throw new IllegalArgumentException();
-			Files.walk(Paths.get(StaticNames.PATH_TO_TAGS)).skip(1).forEach(path -> {
-				if(path.toFile().isDirectory()) {
-					map_tags.putIfAbsent(path.getFileName().toString(), new ReentrantReadWriteLock());
+			Stream.of((new File(StaticNames.PATH_TO_TAGS)).listFiles()).forEach(path -> {
+				if(path.isDirectory()) {
+					map_tags.putIfAbsent(path.getName().toString(), new ReentrantReadWriteLock());
 				}
 			});
 		}
@@ -93,6 +112,8 @@ public class User_Data {
 		file.mkdir();
 		file=new File(dirName+"/"+ StaticNames.NAME_FILE_FOL_UPD);
 		file.createNewFile();
+		file=new File(dirName + "/" + "Posts");
+		file.mkdir();
 		create_addTags(user.getTagsIter(), user.getUser_name(), tags_in_mem);
 	}
 	//@Requires: file != null
