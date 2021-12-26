@@ -40,6 +40,7 @@ public class Tags implements Tags_Interface {
 	 * @Throws: IllegalArgumentException, TooManyTagsException
 	 * @Modifies: tags set
 	 * @Effects: Inserts a tag to the set of tags.
+	 * @Returns: true if the tag was added false otherwise
 	 * @param tag is a String specified by the user to be associated to his/her profile
 	 */
 	public boolean add_tag(String tag) throws TooManyTagsException {
@@ -53,6 +54,7 @@ public class Tags implements Tags_Interface {
 	
 	/*
 	 * @Effects: returns all tags as a string
+	 * @Returns: the tags in String format
 	 */
 	@JsonValue
 	public String toString() {
@@ -61,6 +63,7 @@ public class Tags implements Tags_Interface {
 	
 	/*
 	 * @Effects: returns an iterator
+	 * @Returns: the iterator of the tags
 	 */
 	public Iterator<String> iterator(){
 		return this.tags.iterator();

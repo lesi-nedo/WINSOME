@@ -17,6 +17,7 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 
+import rec_fol.ReceiveUpdatesInterface;
 import user.User;
 public class User_Data {
 	/*
@@ -31,7 +32,7 @@ public class User_Data {
 	public static void load_Usernames(ConcurrentMap<String, ReadWriteLock> usernames) throws JsonParseException, IOException, IllegalArgumentException {
 		if(usernames == null)
 			throw new IllegalArgumentException();
-		Files.walk(Paths.get(StaticNames.PATH_TO_PROFILES)).forEach(path -> {
+		Files.walk(Paths.get(StaticNames.PATH_TO_PROFILES)).skip(1).forEach(path -> {
 			if(path.toFile().isDirectory()) {
 				usernames.putIfAbsent(path.getFileName().toString(), new ReentrantReadWriteLock());
 			}
@@ -46,7 +47,7 @@ public class User_Data {
 		public static void load_Tags(ConcurrentMap<String, ReadWriteLock> map_tags) throws JsonParseException, IOException, IllegalArgumentException {
 			if(map_tags == null)
 				throw new IllegalArgumentException();
-			Files.walk(Paths.get(StaticNames.PATH_TO_TAGS)).forEach(path -> {
+			Files.walk(Paths.get(StaticNames.PATH_TO_TAGS)).skip(1).forEach(path -> {
 				if(path.toFile().isDirectory()) {
 					map_tags.putIfAbsent(path.getFileName().toString(), new ReentrantReadWriteLock());
 				}
@@ -90,6 +91,8 @@ public class User_Data {
 		file.mkdir();
 		file=new File(dirName+ "/"+ "Following");
 		file.mkdir();
+		file=new File(dirName+"/"+ StaticNames.NAME_FILE_FOL_UPD);
+		file.createNewFile();
 		create_addTags(user.getTagsIter(), user.getUser_name(), tags_in_mem);
 	}
 	//@Requires: file != null
@@ -162,9 +165,15 @@ public class User_Data {
 			jsonPar.close();
 		}
 	}
-	
+	//@Requires: username != null, tag != null tags_in_mem != null
+	//@Modifies: the file in the tag folder that holds all user that have specified that tag
+	//@Throws: IllegalArgumentException, IOException
+	//@Effects: it goes to the directory some/path/tag and removes the user, if present, from the file users.json
+	//@param username: the name of the user t;o be removed from the json file
+	//@param tag: the tag (folder) in which there is the json file
+	//@param tags_in_mem: the concurrent data structure that holds the lock associated to the folder that has the same name as tag
 	public static void removeUserFromTag(String username, String tag, ConcurrentMap<String, ReadWriteLock> tags_in_mem) throws IOException {
-		if(username == null)
+		if(username == null || tag == null || tags_in_mem == null)
 			throw new IllegalArgumentException();
 		JsonFactory jsonFact=new JsonFactory();
 		Lock lock=tags_in_mem.get(tag).writeLock();
@@ -185,6 +194,84 @@ public class User_Data {
 			jsonGen.flush();
 			curr_file.delete();
 			temp_file.renameTo(new File(StaticNames.PATH_TO_TAGS+tag+"/"+StaticNames.NAME_FILE_TAG));
+			jsonPar.close();
+		} finally {
+			jsonGen.close();
+			lock.unlock();
+		}
+	}
+	//@Requires: username != null, user_to_ins !=null, lock !=null 
+	//@Throws: IllegalArgumentException, IOException
+	//@Modifies: the file in the folder some/path/username/not_notified.json
+	//@Effects: inserts a follower in the json file so to keep truck who hasn't yet been sent 
+	//@param username: the followee
+	//@param user_to_ins: the follower
+	//@param lock: lock associated to the not_notified.json file
+	public static void add_to_not_notified(String username, String user_to_ins, Lock lock) throws IOException {
+		if(username == null || lock == null || user_to_ins == null)
+			throw new IllegalArgumentException();
+		JsonFactory jsonFact=new JsonFactory();
+		File temp_file=new File(StaticNames.PATH_TO_PROFILES+username+"/"+StaticNames.NAME_FILE_FOL_UPD_TEMP+ Thread.currentThread().getName()+".json");
+		JsonToken curr_tok=null;
+		temp_file.createNewFile();
+		JsonGenerator jsonGen = jsonFact.createGenerator(temp_file, StaticNames.ENCODING);
+		jsonGen.useDefaultPrettyPrinter();
+		
+		try {
+			lock.lock();
+			File curr_file=new File(StaticNames.PATH_TO_PROFILES+username+"/"+StaticNames.NAME_FILE_FOL_UPD);
+			JsonParser jsonPar = jsonFact.createParser(curr_file);
+			jsonGen.writeStartArray();
+			curr_tok = jsonPar.nextToken();
+			if(curr_tok !=null) {
+				while (jsonPar.nextToken()!=JsonToken.END_ARRAY) {
+					jsonGen.copyCurrentEvent(jsonPar);
+				}
+			}
+			jsonGen.writeString(user_to_ins);
+			jsonGen.writeEndArray();
+			jsonGen.flush();
+			curr_file.delete();
+			temp_file.renameTo(new File(StaticNames.PATH_TO_PROFILES+username+"/"+StaticNames.NAME_FILE_FOL_UPD));
+			jsonPar.close();
+		} finally {
+			jsonGen.close();
+			lock.unlock();
+		}
+	}
+	
+	//@Requires: username !=null cl !=null lock != null
+	//@Throws: IllegalArgumentException, IOException
+	//@Modifies: the not_notified.json file located in some/path/username\
+	//@Effects: sends to the client through the stub all followers that hasn't been notified
+	//@param username: the user to notify
+	//@param cl: the client stub
+	//@param lock: the lock associated to the json file
+	public static void notify_client_fol(String username, ReceiveUpdatesInterface cl, Lock lock) throws IOException {
+		if(cl == null || lock == null || username == null)
+			throw new IllegalArgumentException();
+		JsonFactory jsonFact=new JsonFactory();
+		JsonGenerator jsonGen = null;
+		JsonToken curr_tok=null;
+		
+		try {
+			lock.lock();
+			File curr_file=new File(StaticNames.PATH_TO_PROFILES+username+"/"+StaticNames.NAME_FILE_FOL_UPD);
+			jsonGen = jsonFact.createGenerator(curr_file, StaticNames.ENCODING);
+			jsonGen.useDefaultPrettyPrinter();
+			JsonParser jsonPar = jsonFact.createParser(curr_file);
+			curr_tok=jsonPar.nextToken();
+			if(curr_tok!=null) {
+				while (jsonPar.nextToken()!=JsonToken.END_ARRAY) {
+					String tok = jsonPar.getValueAsString();
+					if(tok != null) {
+						cl.update(tok);
+					}
+				}
+			}
+			jsonGen.writeStartArray();
+			jsonGen.writeEndArray();
+			jsonGen.flush();
 			jsonPar.close();
 		} finally {
 			jsonGen.close();

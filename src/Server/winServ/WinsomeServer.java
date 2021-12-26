@@ -88,7 +88,7 @@ public class WinsomeServer {
 		StringBuilder b_str=new StringBuilder();
 		int byte_read =c_sk.read(bfs);
 		bfs.flip();
-		System.out.println(Operations.list_users("&test_user&1", usernames, tags_in_mem));
+		System.out.println(Operations.list_following("&test_user&1"));
 		StringTokenizer tokens = new StringTokenizer(new String(bfs.array()), "\r\n");
 		while(tokens.hasMoreTokens()) {
 			System.out.println(tokens.nextToken());
