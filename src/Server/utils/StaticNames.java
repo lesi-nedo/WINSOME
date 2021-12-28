@@ -6,7 +6,7 @@ public class StaticNames {
 	/*
 	 * This is a class for storing static names for different purpose, e.g names of json files
 	 */
-	public static final String POSTS_REWIN="post_rewin.json";
+	public static final String PATH_TO_POSTS="src/Server/User_Data/Posts/";// the path to the directory where all symbolic links of posts are stored
 	public static final String PATH_TO_PROFILES="src/Server/User_Data/Profiles/";//path to the folder where each user will have own directory 
 	public static final String NAME_JSON_USER="about_user.json";//the json file name containing all information on the user 
 	public static final String PASS_SSL="password";//password used for keytool command and openssl 
@@ -21,5 +21,5 @@ public class StaticNames {
 	public static final String NAME_FILE_FOL_UPD="not_notified.json";
 	public static final String NAME_FILE_FOL_UPD_TEMP="not_notified";
 	public static final String NAME_FILE_POST="post.json";
-
+	public static final String NAME_FILE_WALLET="wallet.json";//the name of the json file that holds the value
 }

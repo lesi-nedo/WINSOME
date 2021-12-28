@@ -86,15 +86,24 @@ public class User_Data {
 			throw new IllegalArgumentException();
 		JsonFactory jsonFact=new JsonFactory();
 		boolean result;
+		JsonGenerator jsonGen = null;
 		String dirName=StaticNames.PATH_TO_PROFILES.concat(user.getUser_name());
 		File directory = new File(dirName);
 		if(directory.exists())
 			throw new FileAlreadyExistsException("This should not have happened, there is a bug in the code.");
 		directory.mkdir();
-		File file = new File(dirName + "/" + StaticNames.NAME_JSON_USER);
+		File file = new File(dirName + "/" + StaticNames.NAME_FILE_WALLET);
+		result =file.createNewFile();
+		jsonGen = jsonFact.createGenerator(file, StaticNames.ENCODING);
+		jsonGen.useDefaultPrettyPrinter();
+		jsonGen.writeStartObject();
+		jsonGen.writeEndObject();
+		jsonGen.flush();
+		jsonGen.close();
+		file = new File(dirName + "/" + StaticNames.NAME_JSON_USER);
 		result =file.createNewFile();
 		assert result==true;
-		JsonGenerator jsonGen = jsonFact.createGenerator(file, StaticNames.ENCODING);
+		jsonGen = jsonFact.createGenerator(file, StaticNames.ENCODING);
 		
 		jsonGen.useDefaultPrettyPrinter();
 		jsonGen.writeStartObject();

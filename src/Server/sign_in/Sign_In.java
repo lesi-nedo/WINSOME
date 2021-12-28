@@ -50,7 +50,7 @@ public class Sign_In extends UnicastRemoteObject implements Sign_In_Interface {
 		this.tags_in_mem=tags_in_mem;
 	}
 	//@Requires: username != null password != null tags_args != null
-	//			username, passwords, tags_args != " " password >= 5 username != " some_text"
+	//			username, passwords, tags_args != " " password >= 5 username != " some_text" 1 <= username.length <= 255
 	//@Throws: IllegalArgumentExcption UsernameAlreadyExistsException TooManyTagsExcption RemoteException
 	//@Modifies: this.usernames this.tags_in_mem
 	//@Effects: registers the new user 
@@ -68,7 +68,7 @@ public class Sign_In extends UnicastRemoteObject implements Sign_In_Interface {
 		AtomicInteger status=new AtomicInteger(0);
 		
 		if(username == null || password == null || tags_arg == null || 
-			username.startsWith(" ") || password.startsWith(" ") || password.length() < 5 || (tags_arg =tags_arg.trim()).length()==0)
+			username.startsWith(" ") || password.startsWith(" ") || password.length() < 5 || (tags_arg =tags_arg.trim()).length()==0 || username.length() > 255)
 			throw new IllegalArgumentException("Incorrect argument.");
 		try {
 			lock.lock();
