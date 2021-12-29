@@ -42,8 +42,8 @@ public class Operations {
 	/*
 	 * Overview: It holds all the methods useful to the interaction client-server
 	*/
-	private static final int LENGTH_OF_POST_ID=10; 
-	private static final int LENGTH_OF_COMMENT_ID=10; 
+	private static final int LENGTH_OF_POST_ID=12; 
+	private static final int LENGTH_OF_COMMENT_ID=12; 
 	private static final String URL_TO_RAND="https://www.random.org/decimal-fractions/?num=1&dec=10&col=1&format=plain&rnd=new";
 	private static final SimpleDateFormat FORMATTER = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
@@ -58,7 +58,7 @@ public class Operations {
 	//@param logged_users: the concurrent data structure that holds all username and sessionId of the logged users
 	public static Result login(String username, String password, ConcurrentMap<String, ReadWriteLock> usernames, ConcurrentMap<String, String> logged_users) throws JsonParseException, IOException {
 		if(username == null || password == null || usernames == null || logged_users == null) 
-			throw new IllegalArgumentException();
+			throw new IllegalArgumentException("Incorrect input");
 		File user=new File(StaticNames.PATH_TO_PROFILES+username+"/"+StaticNames.NAME_JSON_USER);
 		String hash_pas=null;
 		String username_json=null;
@@ -79,7 +79,7 @@ public class Operations {
 						if(tok!=null && tok.equals("user_name")) {
 							jsonPar.nextToken();
 							username_json=jsonPar.getText();
-							assert username_json == username;
+							assert username_json.equals(username)==true;
 						}
 						if(tok!=null && tok.equals("hashed_password")) {
 							jsonPar.nextToken();
@@ -149,7 +149,7 @@ public class Operations {
 		tags_iter=tags.iterator();
 		while(tags_iter.hasNext()) {
 			String tag = tags_iter.next();
-			getAllUsers(new File(StaticNames.PATH_TO_TAGS+tag+"/"+StaticNames.NAME_FILE_TAG), tags_in_mem.get(tag).readLock(), usernames, tags_in_mem, user_to_ret);
+			getAllUsers(new File(StaticNames.PATH_TO_TAGS+tag+"/"+StaticNames.NAME_FILE_TAG), tag, tags_in_mem.get(tag).readLock(), usernames, tags_in_mem, user_to_ret);
 		}
 		user_to_ret.remove(username);
 		tags_iter=user_to_ret.iterator();
@@ -298,10 +298,10 @@ public class Operations {
 	//@Returns: all the tags 
 	//@param user: the directory associated to the user
 	//@param lock: lock associated to the user's folder
-	private static Tags getUserTags(File user, Lock lock) throws JsonParseException, IOException, TooManyTagsException {
+	public static Tags getUserTags(File user, Lock lock_user) throws JsonParseException, IOException, TooManyTagsException {
 		JsonFactory jsonFact= new JsonFactory();
 		try {
-			lock.lock();
+			lock_user.lock();
 			if(user.exists()) {
 				JsonParser jsonPar=jsonFact.createParser(user);
 				try{
@@ -319,7 +319,7 @@ public class Operations {
 				return null;
 			}
 		} finally {
-			lock.unlock();
+			lock_user.unlock();
 		}
 		assert true;
 		System.out.println("ERROR in getUserTags: this message should not have been printed, there are bugs");
@@ -335,10 +335,12 @@ public class Operations {
 	//@param useranames: all usernames of the social network 
 	//@param tags_in_mem: all tags present
 	//@param users_to_ret: holds all users that have specified the tag
-	private static void getAllUsers(File tag_file_json, Lock lock, ConcurrentMap<String, ReadWriteLock> usernames, ConcurrentMap<String, ReadWriteLock> tags_in_mem, TreeSet<String> users_to_ret) throws JsonParseException, IOException {
+	private static void getAllUsers(File tag_file_json, String tag, Lock lock_tag, ConcurrentMap<String, ReadWriteLock> usernames, ConcurrentMap<String, ReadWriteLock> tags_in_mem, TreeSet<String> users_to_ret) throws JsonParseException, IOException {
 		JsonFactory jsonFact= new JsonFactory();
+		int locked=0;
 		try {
-			lock.lock();
+			lock_tag.lock();
+			locked=1;
 			if(tag_file_json.exists()) {
 				JsonParser jsonPar=jsonFact.createParser(tag_file_json);
 				try{
@@ -347,11 +349,11 @@ public class Operations {
 						String tok=jsonPar.getValueAsString();
 						if(tok!=null) {
 							if(!(usernames.containsKey(tok))) {
-								System.out.println(tag_file_json.getName());
-								System.out.println(tok);
-								lock.unlock();
-								User_Data.removeUserFromTag(tok, tag_file_json.getName(), tags_in_mem);
-								lock.lock();
+								lock_tag.unlock();
+								locked=0;
+								User_Data.removeUserFromTag(tok, tag, tags_in_mem);
+								lock_tag.lock();
+								locked=1;
 							} else {
 								users_to_ret.add(tok);
 							}
@@ -365,7 +367,7 @@ public class Operations {
 				System.exit(0);
 			}
 		} finally {
-			lock.unlock();
+			if(locked ==1) lock_tag.unlock();
 		}
 	}
 	//@Requires: username != null lock != null
@@ -398,7 +400,9 @@ public class Operations {
 						jsonPar.nextToken();
 						while(jsonPar.nextToken() != JsonToken.END_OBJECT) {
 							String curr=jsonPar.getText();
-							if(curr.equals("author") || curr.equals("title")) {
+							if(curr==null)
+								return;
+							if(curr != null && (curr.equals("author") || curr.equals("title"))) {
 								times_f++;
 								temp_res=temp_res.concat(", \""+curr+"\":");
 								jsonPar.nextToken();
@@ -438,10 +442,10 @@ public class Operations {
 	//@param title: the title of the post
 	//@para content: the content of the post
 	//@param lock_r: the ReadWrite lock associated to the user's folder
-	public static Result createPost(String username, String title, String content, ReadWriteLock lock_r) throws IOException {
-		if(username == null || title == null || content ==null || lock_r== null)
+	public static Result createPost(String username, String title, String content, ReadWriteLock lock_w) throws IOException {
+		if(username == null || title == null || content ==null || lock_w== null)
 			throw new IllegalArgumentException();
-		Lock lock=lock_r.readLock();
+		Lock lock=lock_w.writeLock();
 		String id_post=User_Data.generateString(LENGTH_OF_POST_ID);
 		String dir_name=StaticNames.PATH_TO_PROFILES+username;
 		JsonFactory jsonFact=new JsonFactory();
@@ -465,6 +469,7 @@ public class Operations {
 				}
 				id_post=User_Data.generateString(LENGTH_OF_POST_ID);	
 			}
+			Files.createSymbolicLink(sym_post, Paths.get(dir_name).toAbsolutePath());
 			file=new File(dir_name+"/"+"Thumbs_up");
 			file.mkdir();
 			file=new File(dir_name+"/"+"Thumbs_down");
@@ -484,7 +489,6 @@ public class Operations {
 			jsonGen.writeEndObject();
 			jsonGen.flush();
 			jsonGen.close();
-			Files.createSymbolicLink(sym_post, Paths.get(dir_name).toAbsolutePath());
 			return new Result(201, "{\"reason\":\"Post has been succesfully added\"}");
 		} finally {
 			lock.unlock();
@@ -560,16 +564,18 @@ public class Operations {
 		JsonFactory jsonFact = new JsonFactory();
 		JsonParser jsonPar = null;
 		File dir=new File(StaticNames.PATH_TO_PROFILES+username);
-		File post=new File(dir+"/Posts/"+id_post+"/"+StaticNames.NAME_FILE_POST);
-		File comments = new File(dir+"/Posts/"+id_post+"/Comments");
-		File thumbs_up = new File(dir+"/Posts/"+id_post+"/Thumbs_up");
-		File thumbs_down = new File(dir+"/Posts/"+id_post+"/Thumbs_down");
+		File post=new File(StaticNames.PATH_TO_POSTS+id_post+"/"+StaticNames.NAME_FILE_POST);
+		File comments = new File(StaticNames.PATH_TO_POSTS+id_post+"/Comments");
+		File thumbs_up = new File(StaticNames.PATH_TO_POSTS+id_post+"/Thumbs_up");
+		File thumbs_down = new File(StaticNames.PATH_TO_POSTS+id_post+"/Thumbs_down");
 		try {
 			lock.lock();
-			if(!dir.exists())
+			if(!dir.exists()) {
 				return new Result(404, "{\"reasone\":\"User not found\"}");
-			if(!post.exists()) //|| !Files.isSymbolicLink(post.toPath())
+			}
+			if(!post.exists()) {
 				return new Result(404, "{\"reasone\":\"Post not found\"}");
+			}
 			jsonPar=jsonFact.createParser(post);
 			jsonPar.nextToken();
 			while(jsonPar.nextToken() != JsonToken.END_OBJECT) {
@@ -668,10 +674,14 @@ public class Operations {
 				return new Result(404, "{\"reason\":\"The usere was deleted\"}");
 			if(!Files.exists(post_to_rw))
 				return new Result(404, "{\"reason\":\"Post not found\"}");
+			if(Files.exists(Paths.get(dir+"/"+id_post)))
+				return new Result(400, "{\"reason\":\"The post has been rewinded already\"}");
+			
 			Files.createSymbolicLink(Paths.get(dir+"/"+id_post), post_to_rw.toRealPath());
 			return new Result(200, "{\"reason\":\"Post got rewinded\"}");
 		} catch (FileAlreadyExistsException e) { 
-			return new Result(400, "{\"reason\":\"The post has been rewinded already\"}");
+			e.printStackTrace();
+			return new Result(500, "{\"reason\":\"Server has bugs\"}");
 		}catch (IOException e) {
 			return new Result(410, "{\"reason\":\"The post was delete\"}");
 		} finally {

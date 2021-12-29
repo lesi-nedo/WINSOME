@@ -138,6 +138,13 @@ public class User_Data {
 	        for (File f : contents) {
 	            if (! Files.isSymbolicLink(f.toPath())) {
 	                deleteDir(f);
+	            } else {
+	            	try {
+						Files.deleteIfExists(f.toPath());
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						System.err.println("Could not delete a symbolic link: " + e.getMessage());
+					}
 	            }
 	        }
 	    }
@@ -169,30 +176,32 @@ public class User_Data {
 			jsonGen.useDefaultPrettyPrinter();
 			
 			lock=tags_in_mem.get(tag).writeLock();
-			lock.lock();
-			file=new File(path+"/"+StaticNames.NAME_FILE_TAG);
-			if(!file.exists()) {
-				file.createNewFile();
-			}
-			JsonParser jsonPar = jsonFact.createParser(file);
-			if(jsonPar.nextToken()==null) {
-				jsonGen.writeStartArray();
-				jsonGen.writeString(username);
-				jsonGen.writeEndArray();
-			} else {
-				jsonGen.copyCurrentEvent(jsonPar);
-				while (jsonPar.nextToken()!=JsonToken.END_ARRAY)
+			try {
+				lock.lock();
+				file=new File(path+"/"+StaticNames.NAME_FILE_TAG);
+				if(!file.exists()) {
+					file.createNewFile();
+				}
+				JsonParser jsonPar = jsonFact.createParser(file);
+				if(jsonPar.nextToken()==null) {
+					jsonGen.writeStartArray();
+					jsonGen.writeString(username);
+					jsonGen.writeEndArray();
+				} else {
 					jsonGen.copyCurrentEvent(jsonPar);
-				jsonGen.writeString(username);
-				jsonGen.copyCurrentEvent(jsonPar);
+					while (jsonPar.nextToken()!=JsonToken.END_ARRAY)
+						jsonGen.copyCurrentEvent(jsonPar);
+					jsonGen.writeString(username);
+					jsonGen.copyCurrentEvent(jsonPar);
+				}
+				jsonGen.flush();
+				file.delete();
+				temp_file.renameTo(new File(path+"/"+StaticNames.NAME_FILE_TAG));
+				jsonPar.close();
+			} finally {
+				lock.unlock();
+				jsonGen.close();
 			}
-			jsonGen.flush();
-			file.delete();
-			temp_file.renameTo(new File(path+"/"+StaticNames.NAME_FILE_TAG));
-			lock.unlock();
-			
-			jsonGen.close();
-			jsonPar.close();
 		}
 	}
 	//@Requires: username != null, tag != null tags_in_mem != null

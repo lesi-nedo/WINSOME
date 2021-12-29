@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -196,28 +195,38 @@ class Sign_InTest {
 		return builder.build();
 	}
 	
-//	@AfterAll
-//	public static void cleanUp() {
-//		try {
-//			Stream.of((new File((StaticNames.PATH_TO_PROFILES)).listFiles()).forEach(path -> {
-//				if(path.toFile().isDirectory()) {
-//					String file_name=null;
-//					file_name=path.getName().toString();
-//					if(file_name.startsWith("&test_user&"))
-//						User_Data.deleteDir(new File(StaticNames.PATH_TO_PROFILES + file_name));
-//				}
-//			});
-//			Files.walk(Paths.get(StaticNames.PATH_TO_TAGS)).forEach(path -> {
-//				if(path.toFile().isDirectory()) {
-//					String file_name=null;
-//					file_name=path.getFileName().toString();
-//					if(file_name.startsWith("&test_tag&"))
-//						User_Data.deleteDir(new File(StaticNames.PATH_TO_TAGS + file_name));
-//				}
-//			});
-//		} catch (Exception e) {
-//			e.printStackTrace();
-//		}
-//	}
+	@AfterAll
+	public static void cleanUp() {
+		try {
+			Stream.of((new File((StaticNames.PATH_TO_PROFILES))).listFiles()).forEach(path -> {
+				if(path.isDirectory()) {
+					String file_name=null;
+					file_name=path.getName().toString();
+					if(file_name.startsWith("&test_user&"))
+						User_Data.deleteDir(new File(StaticNames.PATH_TO_PROFILES + file_name));
+				}
+			});
+			Stream.of((new File(StaticNames.PATH_TO_TAGS)).listFiles()).forEach(path -> {
+				if(path.isDirectory()) {
+					String file_name=null;
+					file_name=path.getName();
+					if(file_name.startsWith("&test_tag&"))
+						User_Data.deleteDir(new File(StaticNames.PATH_TO_TAGS + file_name));
+				}
+			});
+			Stream.of((new File(StaticNames.PATH_TO_POSTS)).listFiles()).forEach(path -> {
+				if(Files.isSymbolicLink(path.toPath())) {
+					try {
+						if(!path.exists())Files.delete(path.toPath());
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						System.err.println("Could not delete a symbolic link: " + e.getMessage());
+					}
+				}
+			});
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
 
 }
