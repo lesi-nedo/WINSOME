@@ -62,6 +62,8 @@ public class Result implements ResultInterface {
 				return "HTTP/1.1 201 Created";
 		case 202:
 				return "HTTP/1.1 202 Accepted"; 
+		case 204:
+				return "HTTP/1.1 204 No Content";
 		case 400:
 				return "HTTP/1.1 400 Bad Request";
 		case 401:

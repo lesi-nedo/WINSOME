@@ -1,6 +1,7 @@
 package winServ;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -11,6 +12,7 @@ import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
@@ -209,8 +211,12 @@ public class Operations {
 			if(!(new File(StaticNames.PATH_TO_PROFILES+username)).exists())
 				return new Result(404, "{\"reasone\":\"User not found\"}");
 			Stream.of((new File(StaticNames.PATH_TO_PROFILES+username+"/" +"Following")).listFiles()).forEach(path -> {
-				if(path.isDirectory()) {
-					wrapper.result=wrapper.result.concat(", \""+path.getName()+"\"");
+				try {
+					if(path.isDirectory()) {
+						wrapper.result=wrapper.result.concat(", \""+path.getName()+"\"");
+					}
+				} catch(NullPointerException e) {
+					return;
 				}
 			});
 		} finally {
@@ -389,39 +395,45 @@ public class Operations {
 			}
 			dir_name=dir_name+"/"+"Posts";
 			Stream.of((new File(dir_name)).listFiles()).forEach(path -> {
-				if(path.isDirectory() && !Files.isSymbolicLink(path.toPath())) {
-					String temp_res="";
-					int times_f=0;
-
-					wrapper.res=wrapper.res.concat(", \""+path.getName()+"\":{");
-					JsonFactory jsonFact=new JsonFactory();
-					try {
-						JsonParser jsonPar=jsonFact.createParser(new File(StaticNames.PATH_TO_PROFILES+username+"/Posts/"+path.getName()+"/"+StaticNames.NAME_FILE_POST));
-						jsonPar.nextToken();
-						while(jsonPar.nextToken() != JsonToken.END_OBJECT) {
-							String curr=jsonPar.getText();
-							if(curr==null)
-								return;
-							if(curr != null && (curr.equals("author") || curr.equals("title"))) {
-								times_f++;
-								temp_res=temp_res.concat(", \""+curr+"\":");
-								jsonPar.nextToken();
-								curr=jsonPar.getText();
-								temp_res=temp_res.concat("\""+curr+"\"");
-								if(times_f==2) break;
+				try {
+					if(path.isDirectory() && !Files.isSymbolicLink(path.toPath())) {
+						String temp_res="";
+						int times_f=0;
+	
+						wrapper.res=wrapper.res.concat(", \""+path.getName()+"\":{");
+						JsonFactory jsonFact=new JsonFactory();
+						try {
+							JsonParser jsonPar=jsonFact.createParser(new File(StaticNames.PATH_TO_PROFILES+username+"/Posts/"+path.getName()+"/"+StaticNames.NAME_FILE_POST));
+							jsonPar.nextToken();
+							while(jsonPar.nextToken() != JsonToken.END_OBJECT) {
+								String curr=jsonPar.getText();
+								if(curr==null)
+									break;
+								if(curr != null && (curr.equals("author") || curr.equals("title"))) {
+									times_f++;
+									temp_res=temp_res.concat(", \""+curr+"\":");
+									jsonPar.nextToken();
+									curr=jsonPar.getText();
+									temp_res=temp_res.concat("\""+curr+"\"");
+									if(times_f==2) break;
+								}
 							}
+							temp_res=temp_res.replaceFirst(", ", "");
+							temp_res=temp_res.concat("}");
+							wrapper.res=wrapper.res.concat(temp_res);
+							jsonPar.close();
+						} catch (JsonParseException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						} catch (IOException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
 						}
-						temp_res=temp_res.replaceFirst(", ", "");
-						temp_res=temp_res.concat("}");
-						wrapper.res=wrapper.res.concat(temp_res);
-						jsonPar.close();
-					} catch (JsonParseException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
+					} else if(Files.isSymbolicLink(path.toPath()) && !path.exists()) {
+						path.delete();
 					}
+				} catch(NullPointerException e) {
+					return;
 				}
 			});
 			
@@ -470,6 +482,18 @@ public class Operations {
 				id_post=User_Data.generateString(LENGTH_OF_POST_ID);	
 			}
 			Files.createSymbolicLink(sym_post, Paths.get(dir_name).toAbsolutePath());
+			file=new File(dir_name+"/stats.json");
+			file.createNewFile();
+			jsonGen = jsonFact.createGenerator(file, StaticNames.ENCODING);
+			jsonGen.useDefaultPrettyPrinter();
+			jsonGen.writeStartObject();
+			jsonGen.writeNumberField("num_comments", 0);
+			jsonGen.writeNumberField("num_thumbs_up", 0);
+			jsonGen.writeNumberField("num_thumbs_down", 0);
+			jsonGen.writeNumberField("num_iter", 0);
+			jsonGen.writeNumberField("last_calc", 0);
+			jsonGen.writeEndObject();
+			jsonGen.close();
 			file=new File(dir_name+"/"+"Thumbs_up");
 			file.mkdir();
 			file=new File(dir_name+"/"+"Thumbs_down");
@@ -494,21 +518,27 @@ public class Operations {
 			lock.unlock();
 		}
 	}
-	//@Requires: username != null lock_r != null
+	//@Requires: username != null usernames != null
 	//@Throws: IllegalArgumentException, IOException, JsonParseException
 	//@Effects: retrieves all posts in the own feed
 	//@Returns: a http code and a json string in format object with fielnames: id_post, author, content
 	//@param username: name of the user who's feed will be build
-	//@param lock_r: ReadWrite lock associated to each user
-	public static Result show_feed(String username, ReadWriteLock lock_r) throws JsonParseException, IOException {
-		if(username == null || lock_r == null)
+	//@param usernames: all name of the users in the system
+	public static Result show_feed(String username, ConcurrentMap<String, ReadWriteLock> usernames) throws JsonParseException, IOException {
+		if(username == null || usernames == null)
 			throw new IllegalArgumentException();
 		String dir_name=StaticNames.PATH_TO_PROFILES+username;
+		String author = null;
 		String res="{";
+		ReadWriteLock lock_r =usernames.get(username);
+		if(lock_r == null)
+			return new Result(404, "{\"reasone\":\"User not found\"}");
 		Lock lock = lock_r.readLock();
 		File dir=null;
 		JsonFactory jsonFact = new JsonFactory();
-		JsonParser jsonPar=null;		
+		JsonParser jsonPar=null;	
+		
+		
 		try {
 			lock.lock();
 			dir=new File(dir_name);
@@ -519,27 +549,47 @@ public class Operations {
 			File[] files = dir.listFiles();
 			for(File f: files) {
 				int times_f=0;
-				if(f.isDirectory()) {
-					res=res.concat(", \""+f.getName()+"\":{");
-					String temp_res="";
-					dir = new File(dir_name +"/"+f.getName()+"/"+StaticNames.NAME_FILE_POST);
-					jsonPar=jsonFact.createParser(dir);
-					jsonPar.nextToken();
-					while(jsonPar.nextToken()!=JsonToken.END_OBJECT) {
-						String tok=jsonPar.getText();
-						if(tok.equals("author") || tok.equals("title")) {
-							times_f++;
-							temp_res=temp_res.concat(", \""+tok+"\":");
-							jsonPar.nextToken();
-							tok=jsonPar.getText();
-							temp_res=temp_res.concat("\""+tok+"\"");
-						}
-						if(times_f==2) break;
+				Lock lock_author=null;
+
+				try {
+					if(Files.isSymbolicLink(f.toPath())) {
+						author =get_author(f.getName());
+						lock_author=usernames.get(author).readLock();
+						lock_author.lock();
 					}
-					jsonPar.close();
-					temp_res=temp_res.replaceFirst(", ", "");
-					temp_res=temp_res.concat("}");
-					res=res.concat(temp_res);
+					if(f.isDirectory()) {
+						res=res.concat(", \""+f.getName()+"\":{");
+						String temp_res="";
+						dir = new File(dir_name +"/"+f.getName()+"/"+StaticNames.NAME_FILE_POST);
+						jsonPar=jsonFact.createParser(dir);
+						jsonPar.nextToken();
+						while(jsonPar.nextToken()!=JsonToken.END_OBJECT) {
+							String tok=jsonPar.getText();
+							if(tok == null)
+								break;
+							if(tok.equals("author") || tok.equals("title")) {
+								times_f++;
+								temp_res=temp_res.concat(", \""+tok+"\":");
+								jsonPar.nextToken();
+								tok=jsonPar.getText();
+								temp_res=temp_res.concat("\""+tok+"\"");
+							}
+							if(times_f==2) break;
+						}
+						jsonPar.close();
+						temp_res=temp_res.replaceFirst(", ", "");
+						temp_res=temp_res.concat("}");
+						res=res.concat(temp_res);
+					} else if(Files.isSymbolicLink(f.toPath()) && !f.exists()) {
+						f.delete();
+					}
+				} catch (NullPointerException | FileNotFoundException e) {
+					continue;
+				} catch (NoSuchFileException e) {
+					continue;
+				} finally {
+					if(lock_author != null)
+						lock_author.unlock();
 				}
 			}
 			res=res.replaceFirst(", ", "");
@@ -550,15 +600,22 @@ public class Operations {
 		return new Result(200, res);
 	}
 	
-	//@Requires: usrname != null id_post != null lock_r !=null
+	//@Requires: usrname != null id_post != null usernames !=null
 	//@Throws IllegalArgumentException JsonParseException IOException
 	//@Effects: retrieves the post by its id with relative information like title content thumbs up thumbs down, comments 
 	//@Returns: http code and a string in format json
 	//@param username: the name of the user who has requested the functionality
 	//@param id_post: the identifier of the post
-	//@param lock_r: the ReadWrite lock associated to the
-	public static Result show_post(String username, String id_post, ReadWriteLock lock_r) throws JsonParseException, IOException {
-		Lock lock= lock_r.readLock();
+	//@param usernames: all usernames in the system
+	public static Result show_post(String username, String id_post, ConcurrentMap<String, ReadWriteLock> usernames) throws JsonParseException, IOException {
+		if(username == null || id_post == null || usernames == null)
+			throw new IllegalArgumentException();
+		try {
+			username=get_author(id_post);
+		} catch(NoSuchFileException e) {
+			return new Result(404, "{\"reasone\":\"Post not found\"}");
+		}
+		Lock lock= usernames.get(username).readLock();
 		String res="{";
 		int times_f=0;
 		JsonFactory jsonFact = new JsonFactory();
@@ -580,6 +637,8 @@ public class Operations {
 			jsonPar.nextToken();
 			while(jsonPar.nextToken() != JsonToken.END_OBJECT) {
 				String curr=jsonPar.getText();
+				if(curr == null)
+					return new Result(204, "{\"reasone\":\"The post is not pubblished yet\"}");
 				if(curr.equals("content") || curr.equals("title")) {
 					times_f++;
 					res=res.concat(", \""+curr+"\":");
@@ -594,23 +653,26 @@ public class Operations {
 			res=res.concat(", \"thumbs_down\":"+thumbs_down.list().length);
 			res=res.concat(", \"comments\":{");
 			String temp_res_com = "";
-			for(File f: comments.listFiles()) {
-				jsonPar = jsonFact.createParser(f);
-				String name_f=f.getName();
-				temp_res_com =", \""+name_f.substring(0, name_f.lastIndexOf('.'))+"\":{";
-				String temp_res="";
-				jsonPar.nextToken();
-				while(jsonPar.nextToken() != JsonToken.END_OBJECT) {
-					String curr=jsonPar.getText();
-					temp_res=temp_res.concat(", \""+curr+"\":");
+			for(File d: comments.listFiles()) {
+				for(File f: d.listFiles()) {
+					jsonPar = jsonFact.createParser(f);
+					String name_f=f.getName();
+					temp_res_com =temp_res_com.concat(", \""+name_f.substring(0, name_f.lastIndexOf('.'))+"\":{");
+					String temp_res="";
 					jsonPar.nextToken();
-					curr=jsonPar.getText();
-					temp_res=temp_res.concat("\""+curr+"\"");
+					while(jsonPar.nextToken() != JsonToken.END_OBJECT) {
+						String curr=jsonPar.getText();
+						if(curr==null)
+							break;
+						temp_res=temp_res.concat(", \""+curr+"\":");
+						jsonPar.nextToken();
+						curr=jsonPar.getText();
+						temp_res=temp_res.concat("\""+curr+"\"");
+					}
+					temp_res=temp_res.replaceFirst(", ", "");
+					temp_res=temp_res.concat("}");
+					temp_res_com=temp_res_com.concat(temp_res);
 				}
-				temp_res=temp_res.replaceFirst(", ", "");
-				temp_res=temp_res.concat("}");
-				temp_res_com=temp_res_com.concat(temp_res);
-				temp_res_com=temp_res_com.concat("}");
 			}
 			temp_res_com = temp_res_com.replaceFirst(", ", "");
 			temp_res_com = temp_res_com.concat("}");
@@ -618,6 +680,8 @@ public class Operations {
 			res=res.replaceFirst(", ", "");
 			res=res.concat("}");
 			return new Result(200, res);
+		} catch(FileNotFoundException e) {
+			return new Result(204, "{\"reasone\":\"The post was just deleted\"}");
 		} finally {
 			lock.unlock();
 		}
@@ -676,7 +740,6 @@ public class Operations {
 				return new Result(404, "{\"reason\":\"Post not found\"}");
 			if(Files.exists(Paths.get(dir+"/"+id_post)))
 				return new Result(400, "{\"reason\":\"The post has been rewinded already\"}");
-			
 			Files.createSymbolicLink(Paths.get(dir+"/"+id_post), post_to_rw.toRealPath());
 			return new Result(200, "{\"reason\":\"Post got rewinded\"}");
 		} catch (FileAlreadyExistsException e) { 
@@ -700,8 +763,9 @@ public class Operations {
 	public static Result rate_post(String username, String id_post, int reac, ConcurrentMap<String, ReadWriteLock> usernames) throws IOException {
 		if(username == null || id_post == null || usernames == null)
 			throw new IllegalArgumentException();
-		if(reac != -1 && reac != 1)
+		if(reac != -1 && reac != 1) {
 			return new Result(400, "{\"reason\":\"Reaction can be 1 or -1\"}");
+		}
 		Lock lock=usernames.get(username).readLock();
 		Lock lock_rw=null;
 		String path_post=null;
@@ -713,8 +777,9 @@ public class Operations {
 		try {
 			lock.lock();
 			Path post= (new File(StaticNames.PATH_TO_PROFILES+username +"/Posts/"+id_post)).toPath();
-			if(!Files.isSymbolicLink(post))
+			if(Files.exists(post) && !Files.isSymbolicLink(post)) {
 				return new Result(400, "{\"reason\":\"Can not rate own post\"}");
+			}
 			if(!Files.exists(post))
 				return new Result(404, "{\"reason\":\"Post not found\"}");
 			path_post = post.toRealPath().toString();
@@ -731,8 +796,12 @@ public class Operations {
 		try {
 			lock_rw.lock();
 			File reac_file = new File(path_post+"/"+dir_reac+username+".json");
-			if(reac_file.exists())
+			File exist_th_up= new File(path_post+"/Thumbs_up/"+username+".json");
+			File exist_th_down= new File(path_post+"/Thumbs_down/"+username+".json");
+
+			if(exist_th_up.exists() || exist_th_down.exists()) {
 				return new Result(400, "{\"reason\":\"The post has been already rated\"}");
+			}
 			reac_file.createNewFile();
 			jsonGen = jsonFact.createGenerator(reac_file, StaticNames.ENCODING);
 			jsonGen.useDefaultPrettyPrinter();
@@ -741,10 +810,10 @@ public class Operations {
 			jsonGen.writeStringField("date", FORMATTER.format(Calendar.getInstance().getTime()));
 			jsonGen.writeEndObject();
 			jsonGen.close();
+			return new Result(200, "\"reason\":\"The post was rated\"}");
 		} finally {
 			lock_rw.unlock();
 		}
-		return new Result(200, "\"reason\":\"The post was rated\"}");
 	}
 	
 	//@Requires: username != null id_post != null comment.length >=1 usernames != null
@@ -772,7 +841,7 @@ public class Operations {
 		try {
 			lock.lock();
 			Path post= (new File(StaticNames.PATH_TO_PROFILES+username +"/Posts/"+id_post)).toPath();
-			if(!Files.isSymbolicLink(post))
+			if(Files.exists(post) && !Files.isSymbolicLink(post))
 				return new Result(400, "{\"reason\":\"Can not comment own post\"}");
 			if(!Files.exists(post))
 				return new Result(404, "{\"reason\":\"Post not found\"}");
@@ -789,7 +858,12 @@ public class Operations {
 			
 		try {
 			lock_rw.lock();
-			File reac_file = new File(path_post+"/Comments/"+id_comment+".json");
+			if(!Files.exists(Paths.get(path_post)))
+				return new Result(404, "{\"reason\":\"Post was deleted\"}");
+			File reac_file = new File(path_post+"/Comments/" +username);
+			if(!reac_file.exists())
+				reac_file.mkdir();
+			reac_file = new File(path_post+"/Comments/" +username+ "/"+id_comment+".json");
 			while(true) {
 				if(!reac_file.exists()) {
 					reac_file.createNewFile();
@@ -805,10 +879,10 @@ public class Operations {
 			jsonGen.writeStringField("date", FORMATTER.format(Calendar.getInstance().getTime()));
 			jsonGen.writeEndObject();
 			jsonGen.close();
+			return new Result(200, "{\"reason\":\"The post was commented\"}");
 		} finally {
 			lock_rw.unlock();
 		}
-		return new Result(200, "{\"reason\":\"The post was commented\"}");
 	}
 	//@Requires: username != null lock_r != null
 	//@Throws: IllegalArgumentException JsonParseEscepion IOException
@@ -834,6 +908,8 @@ public class Operations {
 			jsonPar.nextToken();
 			while(jsonPar.nextToken()!= JsonToken.END_OBJECT) {
 				String tok = jsonPar.getText();
+				if(tok == null)
+					break;
 				res=res.concat(", \""+tok+"\":");
 				jsonPar.nextToken();
 				tok = jsonPar.getText();
@@ -863,7 +939,7 @@ public class Operations {
 		String res="{";
 		JsonFactory jsonFact=new JsonFactory();
 		JsonParser jsonPar=null;
-		float value=0f;
+		double value=0f;
 		HttpRequest request = HttpRequest.newBuilder()
 				.uri(URI.create(URL_TO_RAND))
 				.build();
@@ -875,7 +951,7 @@ public class Operations {
 		try {
 			HttpResponse<String> response = client.send(request, BodyHandlers.ofString());
 			System.out.println(response.statusCode());
-			value=Float.valueOf(response.body());
+			value=Double.valueOf(response.body());
 		} catch (IOException | InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -891,12 +967,14 @@ public class Operations {
 			String tok = null;
 			if(jsonPar.nextToken() != JsonToken.END_OBJECT) {
 				tok = jsonPar.getText();
-				res=res.concat(", \""+tok+"_in_bitcoins\":");
-				jsonPar.nextToken();
-				tok = jsonPar.getText();
-				res=res.concat(""+Float.valueOf(tok)*value);
+				if(tok != null) {	
+					res=res.concat(", \""+tok+"_in_bitcoins\":");
+					jsonPar.nextToken();
+					tok = jsonPar.getText();
+					res=res.concat(""+Float.valueOf(tok)*value);
+				}
 			}
-			while(jsonPar.nextToken()!= JsonToken.END_OBJECT) {
+			while(tok != null && jsonPar.nextToken()!= JsonToken.END_OBJECT) {
 				tok = jsonPar.getText();
 				res=res.concat(", \""+tok+"\":");
 				jsonPar.nextToken();
@@ -911,6 +989,22 @@ public class Operations {
 //			in.close();
 		}
 				
+	}
+	
+	//@Request: id_post != null
+	//@Throws: IllegalArgumentException
+	//@Effects: helps to retrieve the author of the post
+	//@Returns: the username of the author
+	//@param id_post: the idnetifier of the post
+	public static String get_author(String id_post) throws IOException {
+		if(id_post == null)
+			throw new IllegalArgumentException();
+		String path_post=null;
+		String author_post=null;
+		Path post = Paths.get(StaticNames.PATH_TO_POSTS+id_post);
+		path_post = post.toRealPath().toString();
+		author_post=path_post.substring(path_post.indexOf("Profiles/")+9, path_post.indexOf("/Posts"));
+		return author_post;
 	}
 }
 

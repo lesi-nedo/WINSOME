@@ -46,12 +46,14 @@ import winServ.Result;
 @Execution(ExecutionMode.CONCURRENT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class OperationsTest {
-	private static final int NUM_USERS_TO_TEST = 40;//the number of users to be inserted before the test
-	private static final int NUM_USERS_SAME_COLON=4; //number of users that will have the same tag to test list_users
-	private static final int NUM_TEST_FOLLOWERS=20;//the number of user that will follow someone
+	private static final int NUM_USERS_TO_TEST = 100;//the number of users to be inserted before the test
+	private static final int NUM_USERS_SAME_COLON=8; //number of users that will have the same tag to test list_users
+	private static final int NUM_TEST_FOLLOWERS=50;//the number of user that will follow someone
 	private static final int NUM_USERS_SAME_ROW=3; //is fixed, the number of users groups with same tags
-	private static final int NUM_OF_POSTS=100;//number of created posts, of posts rewinded, of blogs shown, of feed returned, and posts
-	private static final int NUM_DEL_POSTS=30; //this how many posts will be deleted
+	private static final int NUM_OF_POSTS=200;//number of created posts, of posts rewinded, of blogs shown, of feed returned
+	private static final int NUM_POSTS_REWIN=600; // number of posts rewinded
+	private static final int NUM_DEL_POSTS=100; //this how many posts will be deleted
+	private static final int NUM_COMMENTS=500; //the number of comments to be added to random posts, and how many posts will be rated
 	private ConcurrentMap<String, ReadWriteLock> usernames=new ConcurrentHashMap<String, ReadWriteLock>();//all previously specified usernames
 	private String[] all_followers = new String[NUM_TEST_FOLLOWERS];//will contain all users that are followers
 	private ArrayList<String> all_fol_posted=new ArrayList<String>();//all users who posted at least one post
@@ -339,13 +341,13 @@ class OperationsTest {
 		String rand_author=null;
 		String rand_id=null;
 		try {
-			while(all_fol_posted.size() == 0)Thread.sleep(400);//this needed if the test is run with ExecutionMode.CONCURRENT
+			while(all_fol_posted.size() == 0)Thread.sleep(rand.nextInt(600)+100);//this needed if the test is run with ExecutionMode.CONCURRENT
 		} catch (InterruptedException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		}
 		ArrayList<String> users=new ArrayList<String>(usernames.keySet());
-		for(int i=0; i<NUM_OF_POSTS; i++) {
+		for(int i=0; i<NUM_POSTS_REWIN; i++) {
 			rand_usr=users.get(rand.nextInt(users.size()));
 			rand_author=all_fol_posted.get(rand.nextInt(all_fol_posted.size()));
 			File[] file =new File(StaticNames.PATH_TO_PROFILES+rand_author+"/Posts").listFiles();
@@ -361,13 +363,12 @@ class OperationsTest {
 					Result res = Operations.rewin_post(rand_usr, rand_id, usernames.get(rand_usr));
 					if(Files.exists(Paths.get(StaticNames.PATH_TO_PROFILES+rand_author+"/Posts/"+rand_id))) {
 						exists=1;
-						if(Files.exists(Paths.get(StaticNames.PATH_TO_POSTS+rand_id))==false) {
+						if(!Files.exists(Paths.get(StaticNames.PATH_TO_POSTS+rand_id))) {
 							exists=0;
 						}
 					}
 					if(exists==1 && rewinded ==0) {
 						assertEquals(200, res.getResult());
-						assertTrue(Files.exists(Paths.get(StaticNames.PATH_TO_PROFILES+rand_usr+"/Posts/"+rand_id)));
 					}
 					if(res.getResult()== 400)  assertTrue(Files.exists(Paths.get(StaticNames.PATH_TO_PROFILES+rand_usr+"/Posts/"+rand_id)));
 				}
@@ -378,7 +379,7 @@ class OperationsTest {
 			
 		}
 	
-		if(rand_usr !=null) assertEquals(404, Operations.rewin_post(rand_usr, "oxxxymiron", usernames.get(rand_usr)).getResult());
+		assertEquals(404, Operations.rewin_post(rand_usr, "oxxxymiron", usernames.get(rand_usr)).getResult());
 	}
 	
 	
@@ -433,7 +434,7 @@ class OperationsTest {
 		for(int i=0; i<NUM_OF_POSTS; i++) {
 			rand_usr=all_fol_posted.get(rand.nextInt(all_fol_posted.size()));
 			try {
-				Result res = Operations.show_feed(rand_usr, usernames.get(rand_usr));
+				Result res = Operations.show_feed(rand_usr, usernames);
 				assertEquals(200, res.getResult());
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
@@ -442,7 +443,7 @@ class OperationsTest {
 			
 		}
 		try {
-			assertEquals(404, Operations.show_feed("DOENOTEXISTS", new ReentrantReadWriteLock()).getResult());
+			assertEquals(404, Operations.show_feed("DOENOTEXISTS", usernames).getResult());
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -457,7 +458,7 @@ class OperationsTest {
 		String rand_author=null;
 		String rand_id=null;
 		try {
-			while(all_fol_posted.size() == 0)Thread.sleep(400);//this needed if the test is run with ExecutionMode.CONCURRENT
+			while(all_fol_posted.size() == 0)Thread.sleep(rand.nextInt(800)+100);//this needed if the test is run with ExecutionMode.CONCURRENT
 		} catch (InterruptedException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
@@ -473,12 +474,12 @@ class OperationsTest {
 					if(file.length == 0)
 						continue;
 					rand_id=file[rand.nextInt(file.length)].getName();
-					Result res = Operations.show_post(rand_usr, rand_id, usernames.get(rand_usr));
+					Result res = Operations.show_post(rand_usr, rand_id, usernames);
 					if(Files.exists(Paths.get(StaticNames.PATH_TO_PROFILES+rand_author+"/Posts/"+rand_id+"/"+StaticNames.NAME_FILE_POST))) {
 						exists=1;
 					}
 					if(exists==1) {
-						assertEquals(200, res.getResult());
+						assertTrue(200 == res.getResult() || 204 == res.getResult());
 					}
 				}
 			} catch (NullPointerException e) {
@@ -494,7 +495,12 @@ class OperationsTest {
 			
 		}
 	
-		if(rand_usr !=null) assertEquals(404, Operations.rewin_post(rand_usr, "oxxxymiron", usernames.get(rand_usr)).getResult());
+		try {
+			assertEquals(404, Operations.show_post(rand_usr, "oxxxymiron", usernames).getResult());
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 	
 	@Test
@@ -505,7 +511,7 @@ class OperationsTest {
 		String rand_id=null;
 		File rand_file = null;
 		try {
-			while(all_fol_posted.size() == 0)Thread.sleep(400);//this needed if the test is run with ExecutionMode.CONCURRENT
+			while(all_fol_posted.size() == 0)Thread.sleep(rand.nextInt(500)+100);//this needed if the test is run with ExecutionMode.CONCURRENT
 		} catch (InterruptedException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
@@ -519,10 +525,10 @@ class OperationsTest {
 					if(file.length == 0)
 						continue;
 					rand_id=(rand_file=file[rand.nextInt(file.length)]).getName();
+					Result res = Operations.delete_post(rand_author, rand_id, usernames.get(rand_author));
 					if(Files.exists(Paths.get(StaticNames.PATH_TO_POSTS+rand_id))) {
 						exists=1;
 					}
-					Result res = Operations.delete_post(rand_author, rand_id, usernames.get(rand_author));
 					if(exists==1) {
 						if(Files.isSymbolicLink(rand_file.toPath())) {
 							assertEquals(401, res.getResult());
@@ -544,8 +550,148 @@ class OperationsTest {
 			
 		}
 	
-		assertEquals(404, Operations.rewin_post(rand_author, "oxxxymiron", usernames.get(rand_author)).getResult());
+		try {
+			assertEquals(404, Operations.delete_post(rand_author, "oxxxymiron", usernames.get(rand_author)).getResult());
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
+	
+	
+	@Test
+	@DisplayName("Test add_comment")
+	void test_add_comment() {
+		Random rand=new Random();
+		String rand_usr=null;
+		String rand_author=null;
+		String rand_id=null;
+		ArrayList<String> users=new ArrayList<String>(usernames.keySet());
+		try {
+			while(all_fol_posted.size() == 0)Thread.sleep(rand.nextInt(700)+100);//this needed if the test is run with ExecutionMode.CONCURRENT
+		} catch (InterruptedException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		for(int i=0; i<NUM_COMMENTS; i++) {
+			rand_author=all_fol_posted.get(rand.nextInt(all_fol_posted.size()));
+			rand_usr=users.get(rand.nextInt(users.size()));
+			File[] file =new File(StaticNames.PATH_TO_PROFILES+rand_author+"/Posts").listFiles();
+			int exists=0;
+			try {
+				if(file != null) {
+					if(file.length == 0)
+						continue;
+					rand_id=file[rand.nextInt(file.length)].getName();
+					Result res = Operations.add_comment(rand_usr, rand_id, User_Data.generateString(30), usernames);
+					if(Files.exists(Paths.get(StaticNames.PATH_TO_PROFILES +rand_usr + "/Posts/"+rand_id))) {
+						if(Files.isSymbolicLink(Paths.get(StaticNames.PATH_TO_PROFILES +rand_usr + "/Posts/"+rand_id))) {
+							exists=1;
+						} else if (Files.exists(Paths.get(StaticNames.PATH_TO_PROFILES +rand_usr + "/Posts/"+rand_id))) {
+							exists=2;
+						}
+					}
+					if(exists==1) {
+						assertEquals(200, res.getResult());
+						  
+					 }else if(exists==2) {
+						assertEquals(400, res.getResult());
+					} else {
+						assertEquals(404, res.getResult());
+					}
+				}
+			} catch (NullPointerException e) {
+				System.out.println("Post was deleted.");
+				e.printStackTrace();
+			} catch (JsonParseException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+		}
+	
+		try {
+			assertEquals(404, Operations.add_comment(rand_author, "b2", "oxxxymiron", usernames).getResult());
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+
+	@Test
+	@DisplayName("Test rate_post")
+	void test_rete_post() {
+		Random rand=new Random();
+		String rand_usr=null;
+		String rand_author=null;
+		String rand_id=null;
+		int rate=rand.nextInt() % 2 == 0? 1: -1;
+		ArrayList<String> users=new ArrayList<String>(usernames.keySet());
+		try {
+			while(all_fol_posted.size() == 0)Thread.sleep(rand.nextInt(1000)+100);//this needed if the test is run with ExecutionMode.CONCURRENT
+		} catch (InterruptedException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		for(int i=0; i<NUM_COMMENTS; i++) {
+			rand_author=all_fol_posted.get(rand.nextInt(all_fol_posted.size()));
+			rand_usr=users.get(rand.nextInt(users.size()));
+			File[] file =new File(StaticNames.PATH_TO_PROFILES+rand_author+"/Posts").listFiles();
+			int exists=0;
+			try {
+				if(file != null) {
+					if(file.length == 0)
+						continue;
+					for(int ind=0; ind < file.length; ind++) {
+						if(Files.isSymbolicLink(file[ind].toPath()) &&
+						   Files.exists(Paths.get(StaticNames.PATH_TO_POSTS+file[ind].getName()))) {
+							rand_id=file[ind].getName();
+						}
+					}
+					if(rand_id==null)
+						continue;
+					if (Files.exists(Paths.get(StaticNames.PATH_TO_PROFILES +rand_usr + "/Posts/"+rand_id+"/Thumbs_up/"+rand_usr+".json")) ||
+							Files.exists(Paths.get(StaticNames.PATH_TO_PROFILES +rand_usr + "/Posts/"+rand_id+"/Thumbs_down/"+rand_usr+".json"))) {
+						exists=2;
+					}
+					Result res = Operations.rate_post(rand_usr, rand_id, rate, usernames);
+					if(Files.exists(Paths.get(StaticNames.PATH_TO_PROFILES +rand_usr + "/Posts/"+rand_id))) {
+						if(Files.isSymbolicLink(Paths.get(StaticNames.PATH_TO_PROFILES +rand_usr + "/Posts/"+rand_id)) && exists == 0) {
+							exists=1;
+						}
+					}
+					if(exists==1) {
+						assertEquals(200, res.getResult());
+						  
+					 }else if(exists==2) {
+						assertEquals(400, res.getResult());
+					}
+				}
+			} catch (NullPointerException e) {
+				System.out.println("Post was deleted.");
+				e.printStackTrace();
+			} catch (JsonParseException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+		}
+	
+		try {
+			assertEquals(404, Operations.rate_post(rand_author, "b2", 1, usernames).getResult());
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
 	
 	@AfterAll
 	public static void cleanUp() {

@@ -21,5 +21,6 @@ public class StaticNames {
 	public static final String NAME_FILE_FOL_UPD="not_notified.json";
 	public static final String NAME_FILE_FOL_UPD_TEMP="not_notified";
 	public static final String NAME_FILE_POST="post.json";
+	public static final String NAME_POSTS_STAT="stats.json";//the name of json file that holds all comments/reactions counted by the daemon thread to calculated tha gain
 	public static final String NAME_FILE_WALLET="wallet.json";//the name of the json file that holds the value
 }

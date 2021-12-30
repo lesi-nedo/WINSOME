@@ -100,13 +100,13 @@ public class WinsomeServer {
 //		System.out.println(Operations.show_feed("&test_user&1", usernames.get("&test_user&1")));
 //		System.out.println(Operations.show_post("&test_user&1", "Bo4hrPGXgP", usernames.get("&test_user&1")));
 //		System.out.println(Operations.delete_post("&test_user&1", "Bo4hrPGXgP", usernames.get("&test_user&1")));
-//		System.out.println(Operations.show_post("&test_user&1", "Bo4hrPGXgP", usernames.get("&test_user&1")));
+		System.out.println(Operations.show_post("&test_user&0Fdq9M", "J0GsSi0AxCk5", usernames));
 //		System.out.println(Operations.rewin_post("&test_user&0ghVXXG", "oZHmgLHn8Q", usernames.get("&test_user&0ghVXXG")));
 //		System.out.println(Operations.rate_post("&test_user&0ghVXXG", "oZHmgLHn8Q", -1, usernames));
 //		System.out.println(Operations.add_comment("&test_user&0ghVXXG", "oZHmgLHn8Q", "SUka blat", usernames));
 //		System.out.println(Operations.add_comment("&test_user&0ghVXXG", "oZHmgLHn8Q", "SUka blat", usernames));
 //		System.out.println(Operations.add_comment("&test_user&1", "oZHmgLHn8Q", "SUka blat", usernames));
-		System.out.println(Operations.get_wallet_in_bitcoin("&test_user&1", usernames.get("&test_user&1")));
+//		System.out.println(Operations.get_wallet_in_bitcoin("&test_user&1", usernames.get("&test_user&1")));
 //		System.out.println(Operations.show_feed("&test_user&0VK7pIl", usernames.get("&test_user&0VK7pIl")));
 		StringTokenizer tokens = new StringTokenizer(new String(bfs.array()), "\r\n");
 		while(tokens.hasMoreTokens()) {

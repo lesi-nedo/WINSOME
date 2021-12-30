@@ -121,6 +121,11 @@ public class User_Data {
 		file.mkdir();
 		file=new File(dirName+"/"+ StaticNames.NAME_FILE_FOL_UPD);
 		file.createNewFile();
+		jsonGen= jsonFact.createGenerator(file, StaticNames.ENCODING);
+		jsonGen.useDefaultPrettyPrinter();
+		jsonGen.writeStartArray();
+		jsonGen.writeEndArray();
+		jsonGen.close();
 		file=new File(dirName + "/" + "Posts");
 		file.mkdir();
 		create_addTags(user.getTagsIter(), user.getUser_name(), tags_in_mem);
@@ -246,12 +251,12 @@ public class User_Data {
 	//@param username: the followee
 	//@param user_to_ins: the follower
 	//@param lock: lock associated to the not_notified.json file
-	public static void add_to_not_notified(String username, String user_to_ins, Lock lock) throws IOException {
-		if(username == null || lock == null || user_to_ins == null)
+	public static void add_to_not_notified(String username, String user_to_ins, ReadWriteLock lock_r) throws IOException {
+		if(username == null || lock_r == null || user_to_ins == null)
 			throw new IllegalArgumentException();
+		Lock lock = lock_r.readLock();
 		JsonFactory jsonFact=new JsonFactory();
 		File temp_file=new File(StaticNames.PATH_TO_PROFILES+username+"/"+StaticNames.NAME_FILE_FOL_UPD_TEMP+ Thread.currentThread().getName()+".json");
-		JsonToken curr_tok=null;
 		temp_file.createNewFile();
 		JsonGenerator jsonGen = jsonFact.createGenerator(temp_file, StaticNames.ENCODING);
 		jsonGen.useDefaultPrettyPrinter();
@@ -261,11 +266,9 @@ public class User_Data {
 			File curr_file=new File(StaticNames.PATH_TO_PROFILES+username+"/"+StaticNames.NAME_FILE_FOL_UPD);
 			JsonParser jsonPar = jsonFact.createParser(curr_file);
 			jsonGen.writeStartArray();
-			curr_tok = jsonPar.nextToken();
-			if(curr_tok !=null) {
-				while (jsonPar.nextToken()!=JsonToken.END_ARRAY) {
-					jsonGen.copyCurrentEvent(jsonPar);
-				}
+			jsonPar.nextToken();
+			while (jsonPar.nextToken()!=JsonToken.END_ARRAY) {
+				jsonGen.copyCurrentEvent(jsonPar);
 			}
 			jsonGen.writeString(user_to_ins);
 			jsonGen.writeEndArray();
@@ -286,9 +289,10 @@ public class User_Data {
 	//@param username: the user to notify
 	//@param cl: the client stub
 	//@param lock: the lock associated to the json file
-	public static void notify_client_fol(String username, ReceiveUpdatesInterface cl, Lock lock) throws IOException {
-		if(cl == null || lock == null || username == null)
+	public static void notify_client_fol(String username, ReceiveUpdatesInterface cl, ReadWriteLock lock_r) throws IOException {
+		if(cl == null || lock_r == null || username == null)
 			throw new IllegalArgumentException();
+		Lock lock = lock_r.readLock();
 		JsonFactory jsonFact=new JsonFactory();
 		JsonGenerator jsonGen = null;
 		JsonToken curr_tok=null;
