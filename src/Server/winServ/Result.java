@@ -57,27 +57,27 @@ public class Result implements ResultInterface {
 	private String to_cor_res(int code) {
 		switch(code) {
 		case 200:
-				return "HTTP/1.1 200 OK";
+				return "OK";
 		case 201:
-				return "HTTP/1.1 201 Created";
+				return "Created";
 		case 202:
-				return "HTTP/1.1 202 Accepted"; 
+				return "Accepted"; 
 		case 204:
-				return "HTTP/1.1 204 No Content";
+				return "No Content";
 		case 400:
-				return "HTTP/1.1 400 Bad Request";
+				return "Bad Request";
 		case 401:
-				return "HTTP/1.1 401 Unauthorized";
+				return "Unauthorized";
 		case 403:
-				return "HTTP/1.1 403 Forbidden";
+				return "Forbidden";
 		case 404:
-				return "HTTP/1.1 404 Not Found";
+				return "Not Found";
 		case 410:
-				return "HTTP/1.1 410 Gone";
+				return "Gone";
 		case 500:
-			return "HTTP/1.1 500 Internal Server Error";
+			return "Internal Server Error";
 		default:
-				return "HTTP/1.1 501 Not Implemented";
+				return "Not Implemented";
 			
 		}
 	}
@@ -101,6 +101,6 @@ public class Result implements ResultInterface {
 	}
 	@Override
 	public String toString() {
-		return this.res_str +"\r\n" + this.reason;
+		return "HTTP/1.1 "+this.result +" " + this.res_str +"\r\n" + this.reason;
 	}
 }

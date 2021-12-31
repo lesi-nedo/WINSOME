@@ -2,7 +2,10 @@ package winServ;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -17,28 +20,22 @@ import com.fasterxml.jackson.core.JsonToken;
 
 import utils.StaticNames;
 
-public class CalcEarningsDaemons implements Runnable {
-	private long period;
+public class CalcEarningsThread implements Runnable {
 	private int  port;
 	private InetAddress addr;
 	private ConcurrentMap<String, ReadWriteLock> usernames;
 	private HashMap<String, Double> users_eatnings;
 	private float reward_author;
-	private float reward_curators;
 	
-	public CalcEarningsDaemons(long period, int port, InetAddress addr, ConcurrentMap<String, ReadWriteLock> usernames, float reward_author, float reward_curators) {
-		this.period = period;
+	public CalcEarningsThread(int port, InetAddress addr, ConcurrentMap<String, ReadWriteLock> usernames, float reward_author) {
 		this.port=port;
 		this.addr=addr;
 		this.usernames=usernames;
 		this.users_eatnings=new HashMap<String, Double>();
 		this.reward_author=reward_author;
-		this.reward_curators=reward_curators;
-		if(reward_author+reward_curators == 1) {
-			throw new IllegalArgumentException();
-		}
 	}
 	
+	@Override
 	public void run() {
 		File[] all_users = (new File(StaticNames.PATH_TO_PROFILES)).listFiles();//all users as an Array of files
 		String user = null;
@@ -116,7 +113,7 @@ public class CalcEarningsDaemons implements Runnable {
 							File[] all_thumb_down = new File(StaticNames.PATH_TO_PROFILES+user+"/Posts/"+post_name+"/Thumbs_down").listFiles();
 							num_new_thmb_down=all_thumb_down.length;
 							//each post has a folder called comments each comment is stored in the folder called as the author of the comment
-							//so all comments relative to a post y bythe user x will be in the folder ../y/Comments/x
+							//so all comments relative to a post 'y' by the user 'x' will be in the folder ../y/Comments/x
 							for(File d : list_com){
 								//the number of comments published by the user
 								int num_coms=d.list().length;
@@ -190,7 +187,14 @@ public class CalcEarningsDaemons implements Runnable {
 						e1.printStackTrace();
 					}
 				});
-				
+				int len_msg=StaticNames.MSG_NOTIFY_MULTICAS.length();
+				ByteBuffer buf = ByteBuffer.allocate(Integer.BYTES+len_msg);
+				buf.putInt(len_msg);
+				buf.put(StaticNames.MSG_NOTIFY_MULTICAS.getBytes());
+				DatagramSocket sock = new DatagramSocket();
+				DatagramPacket dat = new DatagramPacket(buf.array(), buf.position(), this.addr, this.port);
+				sock.send(dat);
+				sock.close();
 			} catch (JsonParseException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();

@@ -58,7 +58,7 @@ public class Operations {
 	//@param password: the password of the user
 	//@param usernames: the concurrent data structure that holds all username of the social network with relative locks
 	//@param logged_users: the concurrent data structure that holds all username and sessionId of the logged users
-	public static Result login(String username, String password, ConcurrentMap<String, ReadWriteLock> usernames, ConcurrentMap<String, String> logged_users) throws JsonParseException, IOException {
+	public static Result login(String username, String password, ConcurrentMap<String, String> logged_users, ConcurrentMap<String, ReadWriteLock> usernames) throws JsonParseException, IOException {
 		if(username == null || password == null || usernames == null || logged_users == null) 
 			throw new IllegalArgumentException("Incorrect input");
 		File user=new File(StaticNames.PATH_TO_PROFILES+username+"/"+StaticNames.NAME_JSON_USER);
@@ -196,15 +196,16 @@ public class Operations {
 	}
 	
 	
-	//@Requires: username != null, lock !=null
+	//@Requires: username != null, usernames !=null
 	//@Throws IllegalArgumentException IOException
 	//@Effects: lists all the users followed by the user
 	//@Returns: Result.result http code and Result.reason  the json string in format array with all users
 	//@param username: the name of the user
-	public static Result list_following(String username, ReadWriteLock lock_r) throws IOException {
-		if(username == null || lock_r == null)
+	//@param usernames: all usernames in the system
+	public static Result list_following(String username, ConcurrentMap<String, ReadWriteLock> usernames) throws IOException {
+		if(username == null || usernames == null)
 			throw new IllegalArgumentException();
-		Lock lock=lock_r.readLock();
+		Lock lock=usernames.get(username).readLock();
 		var wrapper = new Object() { String result="["; };
 		try {
 			lock.lock();
@@ -227,7 +228,7 @@ public class Operations {
 		return new Result(200, wrapper.result);
 	}
 	
-	//@Requires: username != null follow_user != null lock_user_r != null lock_user_to_follow_r != null
+	//@Requires: username != null follow_user != null usernames != null
 	//@Throws: IllegalArgumentException IOException
 	//@Modifies: the directory some/path/username/Following and some/path/follow_user/Followers
 	//@Effects: creates a symbolic link of the user followed in the folder some/path/username/Following
@@ -235,13 +236,12 @@ public class Operations {
 	//@Returns: if Result.result == 200 than the username started to follow follow_user, otherwise 404 or 400
 	//@param username: the name of the user who wants to follow
 	//@param follow_user: the name of the user who will be followed
-	//@param lock_user_r: the Read lock associated to the user's folder
-	//@param lock_usere_to_follow_r: the Read lock associated to the followee folder
-	public static Result follow_user(String username, String follow_user, ReadWriteLock lock_user_r, ReadWriteLock lock_user_to_follow_r) throws IOException {
-		if(username == null || follow_user==null || lock_user_r == null || lock_user_to_follow_r==null || lock_user_r.equals(lock_user_to_follow_r))
+	//@param usernames: all the name of the users of winsome
+	public static Result follow_user(String username, String follow_user, ConcurrentMap<String, ReadWriteLock> usernames) throws IOException {
+		if(username == null || follow_user==null || usernames == null)
 			throw new IllegalArgumentException();
-		Lock user_lock = lock_user_r.readLock();
-		Lock user_to_follow_lock=lock_user_to_follow_r.readLock();
+		Lock user_lock = usernames.get(username).readLock();
+		Lock user_to_follow_lock=usernames.get(follow_user).readLock();
 		try {
 			user_lock.lock();
 			user_to_follow_lock.lock();
@@ -267,7 +267,7 @@ public class Operations {
 	}
 	
 	
-	//@Requires: username != null unfollow_user != null lock_user_r != null lock_user_to_unfollow_r != null
+	//@Requires: username != null unfollow_user != null usernames != null
 		//@Throws: IllegalArgumentException IOException
 		//@Modifies: the directory some/path/username/Following and some/path/follow_user/Followers
 		//@Effects: removes the symbolic link of the user followed in the folder some/path/username/Following
@@ -275,13 +275,12 @@ public class Operations {
 		//@Returns: if Result.result == 200  than the username unfollowed follow_user, 400 otherwise
 		//@param username: the name of the user who wants to unfollow
 		//@param unfollow_user: the name of the user who will be unfollowed
-		//@param lock_user_r: the Read lock associated to the user's folder
-		//@param lock_usere_to_unfollow_r: the Read lock associated to the followee folder
-		public static Result unfollow_user(String username, String unfollow_user, ReadWriteLock lock_user_r, ReadWriteLock lock_user_to_unfollow_r) throws IOException {
-			if(username == null || unfollow_user==null || lock_user_r == null || lock_user_to_unfollow_r==null)
+		//@param usernames: all the name of the users of winsome
+		public static Result unfollow_user(String username, String unfollow_user, ConcurrentMap<String, ReadWriteLock> usernames) throws IOException {
+			if(username == null || unfollow_user==null || usernames == null)
 				throw new IllegalArgumentException();
-			Lock user_lock = lock_user_r.readLock();
-			Lock user_to_unfollow_lock=lock_user_to_unfollow_r.readLock();
+			Lock user_lock = usernames.get(username).readLock();
+			Lock user_to_unfollow_lock=usernames.get(unfollow_user).readLock();
 			try {
 				user_lock.lock();
 				user_to_unfollow_lock.lock();
@@ -376,16 +375,16 @@ public class Operations {
 			if(locked ==1) lock_tag.unlock();
 		}
 	}
-	//@Requires: username != null lock != null
+	//@Requires: username != null usernames != null
 	//@Throws: IllegalArgumentException IOException
 	//@Effects: retrieves all the post published by the user
 	//@Returns: http code and  all post as json string in format object, null if the user was delete in meantime
 	//@param username: the name of the user who has published the posts
-	//@param lock: the lock associated to the user's directory
-	public static Result view_blog(String username, ReadWriteLock lock_r) throws IOException {
-		if(username == null || lock_r == null)
+	//@param usernames: all name of the users
+	public static Result view_blog(String username, ConcurrentMap<String, ReadWriteLock> usernames) throws IOException {
+		if(username == null || usernames == null)
 			throw new IllegalArgumentException();
-		Lock lock = lock_r.readLock();
+		Lock lock = usernames.get(username).readLock();
 		var wrapper = new Object() { String res="{"; };
 		String dir_name=StaticNames.PATH_TO_PROFILES+username;
 		try {
@@ -445,7 +444,7 @@ public class Operations {
 		
 	}
 	
-	//@Requires: username != null title != null && 1 <= title.length <=20 content != null && 1<=content.length<=500 lock_r != null
+	//@Requires: username != null title != null && 1 <= title.length <=20 content != null && 1<=content.length<=500 usernames != null
 	//@Throws: IllegalArgumentException IOException
 	//@Modifes: creates a new directory in some/path/username/Posts/id_post and a json file
 	//@Effects: creates a new post
@@ -453,11 +452,11 @@ public class Operations {
 	//@param username: the name of user who wants to create the post
 	//@param title: the title of the post
 	//@para content: the content of the post
-	//@param lock_r: the ReadWrite lock associated to the user's folder
-	public static Result createPost(String username, String title, String content, ReadWriteLock lock_w) throws IOException {
-		if(username == null || title == null || content ==null || lock_w== null)
+	//@param usernames: the names of all users with locks
+	public static Result create_post(String username, String title, String content, ConcurrentMap<String, ReadWriteLock> usernames) throws IOException {
+		if(username == null || title == null || content ==null || usernames== null)
 			throw new IllegalArgumentException();
-		Lock lock=lock_w.writeLock();
+		Lock lock=usernames.get(username).writeLock();
 		String id_post=User_Data.generateString(LENGTH_OF_POST_ID);
 		String dir_name=StaticNames.PATH_TO_PROFILES+username;
 		JsonFactory jsonFact=new JsonFactory();
@@ -687,18 +686,18 @@ public class Operations {
 		}
 	}
 	
-	//@Requires: username != null id_post != null lock_w != null
+	//@Requires: username != null id_post != null usernames != null
 	//@Throws: IllegalArgumentException IOException
 	//@Modifies: the directory some/path/username/Posts
 	//@Effects: deletes the post and all comments/votes associated to the post
 	//Returns: if Result.result == 202 the post was deleted, 404, 400, 401 otherwise
 	//@param username: the name of the user
 	//@param id_post: the identifier of the post
-	//@param lock_w: the ReadWrite lock associated to the profile
-	public static Result delete_post(String username, String id_post, ReadWriteLock lock_w) throws IOException {
-		if(username == null || id_post == null || lock_w == null)
+	//@param usernames: the names of all users
+	public static Result delete_post(String username, String id_post, ConcurrentMap<String, ReadWriteLock> usernames) {
+		if(username == null || id_post == null || usernames == null)
 			throw new IllegalArgumentException();
-		Lock lock = lock_w.writeLock();
+		Lock lock = usernames.get(username).writeLock();
 		File dir = new File(StaticNames.PATH_TO_PROFILES+username);
 		File post = new File(StaticNames.PATH_TO_PROFILES+username+"/Posts/"+id_post);
 		try {
@@ -710,25 +709,30 @@ public class Operations {
 			if(Files.isSymbolicLink(post.toPath()))
 				return new Result(401, "{\"reason\":\"The post belongs to another user\"}");
 			User_Data.deleteDir(post);
-			Files.delete(Paths.get(StaticNames.PATH_TO_POSTS+id_post));
+			try {
+				Files.delete(Paths.get(StaticNames.PATH_TO_POSTS+id_post));
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 			return new Result(202, "{\"reason\":\"The post has been deleted succesfully\"}");
 		} finally {
 			lock.unlock();
 		}
 	}
 	
-	//@Requires: username != null id_post != null lock_r != null 
+	//@Requires: username != null id_post != null usernames != null 
 	//@Throws: IllegalArgumentException
 	//@Mdofies: some/path/username/Posts
 	//@Effects: creates a symbolic link of the post to be rewinded
 	//@Returns: http code and a string in format json
 	//@param username: the identifier of the user
 	//@param id_post: the identifier of the post
-	//@param lock_r: the ReadWrite lock associated to the user who wants to publish the post
-	public static Result rewin_post(String username, String id_post, ReadWriteLock lock_r) {
-		if(username == null || id_post == null || lock_r == null)
+	//@param usernames: the names of all users
+	public static Result rewin_post(String username, String id_post, ConcurrentMap<String, ReadWriteLock> usernames) {
+		if(username == null || id_post == null || usernames == null)
 			throw new IllegalArgumentException();
-		Lock lock=lock_r.readLock();
+		Lock lock=usernames.get(username).readLock();
 		String dir=StaticNames.PATH_TO_PROFILES+username+"/Posts";
 		Path path_to_posts = Paths.get(dir);
 		Path post_to_rw = Paths.get(StaticNames.PATH_TO_POSTS+id_post);
@@ -884,18 +888,18 @@ public class Operations {
 			lock_rw.unlock();
 		}
 	}
-	//@Requires: username != null lock_r != null
+	//@Requires: username != null usernames != null
 	//@Throws: IllegalArgumentException JsonParseEscepion IOException
 	//@Effects: permits to retrive the value of the wallet
 	//@Returns: http code with a string in format json
 	//@param username: the name of the user
-	//@param lock_r: the lock associated to the user's folder
-	public static Result get_wallet(String username, ReadWriteLock lock_r) throws JsonParseException, IOException {
-		if(username == null || lock_r == null) 
+	//@param usernames: the names of users
+	public static Result get_wallet(String username, ConcurrentMap<String, ReadWriteLock> usernames) throws JsonParseException, IOException {
+		if(username == null || usernames == null) 
 			throw new IllegalArgumentException();
 		String file_w=StaticNames.PATH_TO_PROFILES+username+"/"+StaticNames.NAME_FILE_WALLET;
 		File file = new File(file_w);
-		Lock lock=lock_r.readLock();
+		Lock lock=usernames.get(username).readLock();
 		String res="{";
 		JsonFactory jsonFact=new JsonFactory();
 		JsonParser jsonPar=null;
@@ -924,18 +928,18 @@ public class Operations {
 			
 	}
 		
-	//@Requires: username != null lock_r != null
+	//@Requires: username != null usernames != null
 	//@Throws: IllegalArgumentException JsonParseEscepion IOException
 	//@Effects: permits to retrive the value of the wallet in bitcoins
 	//@Returns: http code with a string in format json
 	//@param username: the name of the user
-	//@param lock_r: the lock associated to the user's folder
-	public static Result get_wallet_in_bitcoin(String username, ReadWriteLock lock_r) throws JsonParseException, IOException {
-		if(username == null || lock_r == null) 
+	//@param usernames: all names of the user
+	public static Result get_wallet_in_bitcoin(String username, ConcurrentMap<String, ReadWriteLock> usernames) throws JsonParseException, IOException {
+		if(username == null || usernames == null) 
 			throw new IllegalArgumentException();
 		String file_w=StaticNames.PATH_TO_PROFILES+username+"/"+StaticNames.NAME_FILE_WALLET;
 		File file = new File(file_w);
-		Lock lock=lock_r.readLock();
+		Lock lock=usernames.get(username).readLock();
 		String res="{";
 		JsonFactory jsonFact=new JsonFactory();
 		JsonParser jsonPar=null;

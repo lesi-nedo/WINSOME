@@ -1,15 +1,30 @@
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.net.InetAddress;
+import java.nio.ByteBuffer;
 import java.rmi.AlreadyBoundException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.Arrays;
+import java.util.StringTokenizer;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.ReadWriteLock;
 
 import javax.rmi.ssl.SslRMIClientSocketFactory;
 import javax.rmi.ssl.SslRMIServerSocketFactory;
+
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpException;
+import org.apache.http.HttpRequest;
+import org.apache.http.client.methods.HttpPut;
+import org.apache.http.entity.BasicHttpEntity;
+import org.apache.http.impl.io.DefaultHttpRequestParser;
+import org.apache.http.impl.io.HttpTransportMetricsImpl;
+import org.apache.http.impl.io.SessionInputBufferImpl;
+import org.apache.http.message.BasicHttpRequest;
 
 import com.fasterxml.jackson.core.JsonParseException;
 
@@ -82,8 +97,21 @@ public class WinsomeServerMain {
 			Registry reg;	
 			FollowersInterface stub= null;
 			Followers serv_fol=null;
+			HttpTransportMetricsImpl metrics= new HttpTransportMetricsImpl();
+			SessionInputBufferImpl ses_inp = new SessionInputBufferImpl(metrics, 10);
+			ses_inp.bind(new ByteArrayInputStream(("PUT /echo HTTP/1.1\t\r\n" +  "Host: reqbin.com\n\r\n" +  "Accept: */*\r\n\r\n").getBytes()));
+			DefaultHttpRequestParser req_par = new DefaultHttpRequestParser(ses_inp);
 			
-			
+			String str ="/ddf";
+			HttpPut req;
+				req = new HttpPut ();
+				req.setHeader("Cookie", "PHPSESSID=298zf09hf012fh2; csrftoken=u32t4o3tb3gg43; _gat=1");
+				System.out.println(req.getFirstHeader("Cookie").getElements()[0].getParameterByName("suka"));
+				BasicHttpEntity entity = new BasicHttpEntity();
+				entity.setContentType("application/json");
+				entity.setContent(new ByteArrayInputStream("Efdf".getBytes()));
+				req.setEntity(entity);
+				System.out.println(req.getEntity().getContent().toString());
 			serv_fol=new Followers(reg_users);
 			User_Data.load_Tags(tags_in_mem);
 			User_Data.load_Usernames(usernames);
@@ -94,8 +122,8 @@ public class WinsomeServerMain {
 			reg.bind(SER_NAME, sign_ser);
 			stub= (FollowersInterface)UnicastRemoteObject.exportObject(serv_fol,0);
 			reg.bind(SER_NAME_FOLL, stub);
-			WinsomeServer serv=new WinsomeServer(TCPPORT, SERVER);
-			serv.start_serv();
+			WinsomeServer serv=new WinsomeServer(TCPPORT, SERVER, 1);
+			serv.start_serv(1000);
 		} catch (JsonParseException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
@@ -114,7 +142,13 @@ public class WinsomeServerMain {
 		} catch (AlreadyBoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-		}
+		} catch (NoSuchMethodException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (SecurityException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} 
  
 	}
 

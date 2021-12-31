@@ -14,7 +14,6 @@ import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -87,7 +86,7 @@ class OperationsTest {
 	@MethodSource("users_and_pas")
 	void test_login(String username, String password) {
 		try {
-			assertEquals(200, Operations.login(username, password, usernames, this.logged_users).getResult());
+			assertEquals(200, Operations.login(username, password, this.logged_users, usernames).getResult());
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -99,7 +98,7 @@ class OperationsTest {
 	@MethodSource("users_and_pas")
 	void test_login_inc_pas(String username, String password) {
 		try {
-			assertEquals(400, Operations.login(username, password+"TEST", usernames, this.logged_users).getResult());
+			assertEquals(400, Operations.login(username, password+"TEST", this.logged_users, usernames).getResult());
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -111,7 +110,7 @@ class OperationsTest {
 	@MethodSource("users_and_pas")
 	void test_login_inc_user(String username, String password) {
 		try {
-			Result res =Operations.login(username+"TEST", password+"TEST", usernames, this.logged_users);
+			Result res =Operations.login(username+"TEST", password+"TEST", this.logged_users, usernames);
 			assertEquals(404, res.getResult());
 			assertEquals("{\"reason\":\"Username does not exists\"}", res.getReason());
 		} catch (IOException e) {
@@ -125,7 +124,7 @@ class OperationsTest {
 	@CsvSource({","})
 	void test_login_inc_val(String username, String password) {
 		Exception e = assertThrows(IllegalArgumentException.class, ()-> {
-			Operations.login(username, password, usernames, logged_users);
+			Operations.login(username, password, logged_users, usernames);
 		});
 		assertEquals("Incorrect input", e.getMessage());
 
@@ -209,7 +208,7 @@ class OperationsTest {
 						if(Files.exists(Paths.get(StaticNames.PATH_TO_PROFILES+us_to_test+"/Following/"+follow))){
 							already_a_fol=1;
 						}
-						Result res =Operations.follow_user(us_to_test, follow, usernames.get(us_to_test), usernames.get(follow));
+						Result res =Operations.follow_user(us_to_test, follow, usernames);
 						if(already_a_fol==0) {
 							assertEquals(200, res.getResult());
 						} else {
@@ -225,7 +224,7 @@ class OperationsTest {
 		}
 		try {
 			if(us_to_test != null && follow != null && us_to_test != follow) {
-				Result res =Operations.follow_user(us_to_test, follow, usernames.get(us_to_test), usernames.get(follow));
+				Result res =Operations.follow_user(us_to_test, follow, usernames);
 				assertEquals(400, res.getResult());
 			}
 		} catch (IOException e) {
@@ -246,7 +245,7 @@ class OperationsTest {
 		for(String f: all_followers) {
 			if(f!=null) {
 				try {
-					Result re = Operations.list_following(f, usernames.get(f));
+					Result re = Operations.list_following(f, usernames);
 					assertEquals(200, re.getResult());
 					assertTrue(re.getReason().length()>2);
 				} catch (IOException e) {
@@ -256,7 +255,7 @@ class OperationsTest {
 			}
 		}
 		try {
-			assertEquals(404, Operations.list_following("ddddd", new ReentrantReadWriteLock()).getResult());
+			assertEquals(404, Operations.list_following("ddddd", usernames).getResult());
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -284,7 +283,7 @@ class OperationsTest {
 						continue;
 					us_unf=folls[rand.nextInt(folls.length)].getName();
 					try {
-						Result res = Operations.unfollow_user(f, us_unf, usernames.get(f), usernames.get(us_unf));
+						Result res = Operations.unfollow_user(f, us_unf, usernames);
 						assertEquals(200, res.getResult());
 						assertTrue(!Files.exists(Paths.get(StaticNames.PATH_TO_PROFILES+f+"/Following/"+us_unf)));
 						assertTrue(!Files.exists(Paths.get(StaticNames.PATH_TO_PROFILES+us_unf+"/Followers/"+f)));
@@ -297,7 +296,7 @@ class OperationsTest {
 		}
 		try {
 			if(us_unf != null && us !=null)
-				assertEquals(400, Operations.unfollow_user(us, us_unf, usernames.get(us), usernames.get(us_unf)).getResult());
+				assertEquals(400, Operations.unfollow_user(us, us_unf, usernames));
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -316,7 +315,7 @@ class OperationsTest {
 			String title=User_Data.generateString(7);
 			String content=User_Data.generateString(20);
 			try {
-				Result res = Operations.createPost(rand_usr, title, content, usernames.get(rand_usr));
+				Result res = Operations.create_post(rand_usr, title, content, usernames);
 				assertEquals(201, res.getResult());
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
@@ -325,8 +324,8 @@ class OperationsTest {
 			
 		}
 		try {
-			if(rand_usr !=null) assertEquals(400, Operations.createPost(rand_usr, "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG", "hey baby", usernames.get(rand_usr)).getResult());
-			assertEquals(404, Operations.createPost("DOENOTEXISTS", "oxxxymiron", "rapper", new ReentrantReadWriteLock()).getResult());
+			if(rand_usr !=null) assertEquals(400, Operations.create_post(rand_usr, "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG", "hey baby", usernames).getResult());
+			assertEquals(404, Operations.create_post("DOENOTEXISTS", "oxxxymiron", "rapper", usernames).getResult());
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -360,7 +359,7 @@ class OperationsTest {
 					rand_id=file[rand.nextInt(file.length)].getName();
 					if(Files.exists(Paths.get(StaticNames.PATH_TO_PROFILES+rand_usr+"/Posts/"+rand_id)))
 						rewinded=1;
-					Result res = Operations.rewin_post(rand_usr, rand_id, usernames.get(rand_usr));
+					Result res = Operations.rewin_post(rand_usr, rand_id, usernames);
 					if(Files.exists(Paths.get(StaticNames.PATH_TO_PROFILES+rand_author+"/Posts/"+rand_id))) {
 						exists=1;
 						if(!Files.exists(Paths.get(StaticNames.PATH_TO_POSTS+rand_id))) {
@@ -379,7 +378,7 @@ class OperationsTest {
 			
 		}
 	
-		assertEquals(404, Operations.rewin_post(rand_usr, "oxxxymiron", usernames.get(rand_usr)).getResult());
+		assertEquals(404, Operations.rewin_post(rand_usr, "oxxxymiron", usernames).getResult());
 	}
 	
 	
@@ -398,7 +397,7 @@ class OperationsTest {
 		for(int i=0; i<NUM_OF_POSTS; i++) {
 			rand_usr=all_fol_posted.get(rand.nextInt(all_fol_posted.size()));
 			try {
-				Result res = Operations.view_blog(rand_usr, usernames.get(rand_usr));
+				Result res = Operations.view_blog(rand_usr, usernames);
 				assertEquals(200, res.getResult());
 				Pattern pat = Pattern.compile("(?<=\"author\":\")(.*?)(?=\")");//retrieves only the author of the post
 				Matcher match = pat.matcher(res.getReason());
@@ -412,7 +411,7 @@ class OperationsTest {
 			
 		}
 		try {
-			assertEquals(404, Operations.view_blog("DOENOTEXISTS", new ReentrantReadWriteLock()).getResult());
+			assertEquals(404, Operations.view_blog("DOENOTEXISTS", usernames).getResult());
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -525,7 +524,7 @@ class OperationsTest {
 					if(file.length == 0)
 						continue;
 					rand_id=(rand_file=file[rand.nextInt(file.length)]).getName();
-					Result res = Operations.delete_post(rand_author, rand_id, usernames.get(rand_author));
+					Result res = Operations.delete_post(rand_author, rand_id, usernames);
 					if(Files.exists(Paths.get(StaticNames.PATH_TO_POSTS+rand_id))) {
 						exists=1;
 					}
@@ -540,22 +539,11 @@ class OperationsTest {
 			} catch (NullPointerException e) {
 				System.out.println("Post was deleted.");
 				e.printStackTrace();
-			} catch (JsonParseException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
 			}
 			
 		}
 	
-		try {
-			assertEquals(404, Operations.delete_post(rand_author, "oxxxymiron", usernames.get(rand_author)).getResult());
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		assertEquals(404, Operations.delete_post(rand_author, "oxxxymiron", usernames).getResult());
 	}
 	
 	
