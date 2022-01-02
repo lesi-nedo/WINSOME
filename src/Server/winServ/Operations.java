@@ -35,6 +35,7 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 
+import rec_fol.ReceiveUpdatesInterface;
 import sign_in.Tags;
 import sign_in.TooManyTagsException;
 import utils.StaticNames;
@@ -58,13 +59,14 @@ public class Operations {
 	//@param password: the password of the user
 	//@param usernames: the concurrent data structure that holds all username of the social network with relative locks
 	//@param logged_users: the concurrent data structure that holds all username and sessionId of the logged users
-	public static Result login(String username, String password, ConcurrentMap<String, String> logged_users, ConcurrentMap<String, ReadWriteLock> usernames) throws JsonParseException, IOException {
+	public static Result login(String username, String password, ConcurrentMap<String, String> logged_users, ConcurrentMap<String, ReadWriteLock> usernames, ConcurrentMap<String, ReceiveUpdatesInterface> users_to_upd) throws JsonParseException, IOException {
 		if(username == null || password == null || usernames == null || logged_users == null) 
 			throw new IllegalArgumentException("Incorrect input");
 		File user=new File(StaticNames.PATH_TO_PROFILES+username+"/"+StaticNames.NAME_JSON_USER);
 		String hash_pas=null;
 		String username_json=null;
 		ReadWriteLock rw_lock=null;
+		int is_locked = 0;
 		Lock lock=null;
 		JsonFactory jsonFact= new JsonFactory();
 		
@@ -73,6 +75,7 @@ public class Operations {
 		lock=rw_lock.readLock();
 		try {
 			lock.lock();
+			is_locked=1;
 			if(user.exists()) {
 				JsonParser jsonPar=jsonFact.createParser(user);
 				try{
@@ -88,6 +91,12 @@ public class Operations {
 							hash_pas=jsonPar.getValueAsString();
 							if(BCrypt.checkpw(password,hash_pas)) {
 								logged_users.putIfAbsent(username, getSessionId());
+								lock.unlock();
+								is_locked=0;
+								User_Data.notify_client_fol(username, users_to_upd, usernames, StaticNames.NAME_FILE_FOL_UPD);
+								User_Data.notify_client_fol(username, users_to_upd, usernames, StaticNames.NAME_FILE_UNFOL_UPD);
+								lock.lock();
+								is_locked=1;
 								return new Result(200, "{\"reason\":\"Correct password\"}");
 							} else return new Result(400, "{\"reason\":\"Incorrect Password\"}");
 						}
@@ -99,7 +108,7 @@ public class Operations {
 				return new Result(404, "{\"reason\":\"The user has been removed\"}");
 			}
 		} finally {
-			lock.unlock();
+			if(is_locked == 1) lock.unlock();
 		}
 		return new Result(500, "{\"reason\":\"Server has bugs\"}");
 	}
@@ -205,7 +214,10 @@ public class Operations {
 	public static Result list_following(String username, ConcurrentMap<String, ReadWriteLock> usernames) throws IOException {
 		if(username == null || usernames == null)
 			throw new IllegalArgumentException();
-		Lock lock=usernames.get(username).readLock();
+		ReadWriteLock lock_r = null;
+		if((lock_r=usernames.get(username)) == null)
+			return new Result(404, "{\"reason\":\"Username does not exists\"}");
+		Lock lock=lock_r.readLock();
 		var wrapper = new Object() { String result="["; };
 		try {
 			lock.lock();
@@ -237,14 +249,23 @@ public class Operations {
 	//@param username: the name of the user who wants to follow
 	//@param follow_user: the name of the user who will be followed
 	//@param usernames: all the name of the users of winsome
-	public static Result follow_user(String username, String follow_user, ConcurrentMap<String, ReadWriteLock> usernames) throws IOException {
+	public static Result follow_user(String username, String follow_user, ConcurrentMap<String, ReadWriteLock> usernames, ConcurrentMap<String, ReceiveUpdatesInterface> users_to_upd) throws IOException {
 		if(username == null || follow_user==null || usernames == null)
 			throw new IllegalArgumentException();
-		Lock user_lock = usernames.get(username).readLock();
-		Lock user_to_follow_lock=usernames.get(follow_user).readLock();
+		ReadWriteLock lock_r = null;
+		int is_locked=0;
+		if(username.equals(follow_user))
+			return new Result(400, "{\"reason\":\"User can't follow himself\"}");
+		if((lock_r=usernames.get(username)) == null)
+			return new Result(404, "{\"reason\":\"Username does not exists\"}");
+		Lock user_lock = lock_r.readLock();
+		if((lock_r=usernames.get(follow_user)) == null)
+			return new Result(404, "{\"reason\":\"Username to follow does not exists\"}");
+		Lock user_to_follow_lock=lock_r.readLock();
 		try {
 			user_lock.lock();
 			user_to_follow_lock.lock();
+			is_locked=1;
 			Path user_to_follow=Paths.get(StaticNames.PATH_TO_PROFILES+follow_user);
 			if(!user_to_follow.toFile().exists())
 				return new Result(404, "{\"reason\":\"User to follow has been deleted"+"\"}");
@@ -257,12 +278,20 @@ public class Operations {
 			user=user.toAbsolutePath();
 			user_to_follow=Paths.get(StaticNames.PATH_TO_PROFILES+follow_user+"/"+"Followers"+"/"+username);
 			Files.createSymbolicLink(user_to_follow, user);
+			ReceiveUpdatesInterface use_stub = users_to_upd.get(follow_user);//if the followed user is not registered for callback then the new follower is saved 
+			if(use_stub==null) {
+				user_to_follow_lock.unlock();
+				is_locked=0;
+				User_Data.add_to_not_notified(follow_user, username, usernames, StaticNames.NAME_FILE_FOL_UPD);
+				user_to_follow_lock.lock();
+				is_locked=1;
+			}
 			return new Result(200, "{\"reason\":\"The user: " + username + " now follows " + follow_user+"\"}");
 		}catch (FileAlreadyExistsException e) {
 			return new Result(400, "{\"reason\":\"The user: " + username + " already follows " + follow_user+"\"}");
 		} finally {
 			user_lock.unlock();
-			user_to_follow_lock.unlock();
+			if(is_locked == 1) user_to_follow_lock.unlock();
 		}
 	}
 	
@@ -276,24 +305,42 @@ public class Operations {
 		//@param username: the name of the user who wants to unfollow
 		//@param unfollow_user: the name of the user who will be unfollowed
 		//@param usernames: all the name of the users of winsome
-		public static Result unfollow_user(String username, String unfollow_user, ConcurrentMap<String, ReadWriteLock> usernames) throws IOException {
+		public static Result unfollow_user(String username, String unfollow_user, ConcurrentMap<String, ReadWriteLock> usernames, ConcurrentMap<String, ReceiveUpdatesInterface> users_to_upd) throws IOException {
 			if(username == null || unfollow_user==null || usernames == null)
 				throw new IllegalArgumentException();
-			Lock user_lock = usernames.get(username).readLock();
+			if(username.equals(unfollow_user))
+				return new Result(400, "{\"reason\":\"User can't unfollow himself\"}");
+			
+			ReadWriteLock lock_r =null;
+			int is_locked = 0;
+			if((lock_r=usernames.get(username)) == null)
+				return new Result(404, "{\"reason\":\"Username does not exists\"}");
+			Lock user_lock = lock_r.readLock();
+			if((lock_r=usernames.get(unfollow_user)) == null)
+				return new Result(404, "{\"reason\":\"Username to unfollow does not exists\"}");
 			Lock user_to_unfollow_lock=usernames.get(unfollow_user).readLock();
 			try {
 				user_lock.lock();
 				user_to_unfollow_lock.lock();
+				is_locked=1;
 				File user_to_unfollow=new File(StaticNames.PATH_TO_PROFILES+unfollow_user+"/"+"Followers/"+username);
 				File user=new File(StaticNames.PATH_TO_PROFILES+username+"/"+"Following/"+unfollow_user);
 				if(!user.exists())
 					return new Result(400, "{\"reason\":\"The user was not a follower of " + unfollow_user+"\"}");
 				user.delete();
 				user_to_unfollow.delete();
+				ReceiveUpdatesInterface use_stub = users_to_upd.get(unfollow_user);//if the unfollowed user is not registered for callback then the new unfollower is saved 
+				if(use_stub == null) {
+					user_to_unfollow_lock.unlock();
+					is_locked=0;
+					User_Data.add_to_not_notified(unfollow_user, username, usernames, StaticNames.NAME_FILE_UNFOL_UPD);		
+					user_to_unfollow_lock.lock();
+					is_locked=1;
+				}
 				return new Result(200, "{\"reason\":\"The user: " + username + " unfollowed " + unfollow_user+"\"}");
 			} finally {
 				user_lock.unlock();
-				user_to_unfollow_lock.unlock();
+				if(is_locked == 1) user_to_unfollow_lock.unlock();
 			}
 		}
 		
@@ -384,7 +431,10 @@ public class Operations {
 	public static Result view_blog(String username, ConcurrentMap<String, ReadWriteLock> usernames) throws IOException {
 		if(username == null || usernames == null)
 			throw new IllegalArgumentException();
-		Lock lock = usernames.get(username).readLock();
+		ReadWriteLock lock_r =null;
+		if((lock_r=usernames.get(username)) == null)
+			return new Result(404, "{\"reason\":\"Username does not exists\"}");
+		Lock lock = lock_r.readLock();
 		var wrapper = new Object() { String res="{"; };
 		String dir_name=StaticNames.PATH_TO_PROFILES+username;
 		try {
@@ -456,7 +506,10 @@ public class Operations {
 	public static Result create_post(String username, String title, String content, ConcurrentMap<String, ReadWriteLock> usernames) throws IOException {
 		if(username == null || title == null || content ==null || usernames== null)
 			throw new IllegalArgumentException();
-		Lock lock=usernames.get(username).writeLock();
+		ReadWriteLock lock_r =null;
+		if((lock_r=usernames.get(username)) == null)
+			return new Result(404, "{\"reason\":\"Username does not exists\"}");
+		Lock lock=lock_r.writeLock();
 		String id_post=User_Data.generateString(LENGTH_OF_POST_ID);
 		String dir_name=StaticNames.PATH_TO_PROFILES+username;
 		JsonFactory jsonFact=new JsonFactory();
@@ -697,7 +750,11 @@ public class Operations {
 	public static Result delete_post(String username, String id_post, ConcurrentMap<String, ReadWriteLock> usernames) {
 		if(username == null || id_post == null || usernames == null)
 			throw new IllegalArgumentException();
-		Lock lock = usernames.get(username).writeLock();
+		ReadWriteLock lock_r =null;
+		if((lock_r=usernames.get(username)) == null)
+			return new Result(404, "{\"reason\":\"Username does not exists\"}");
+		
+		Lock lock = lock_r.writeLock();
 		File dir = new File(StaticNames.PATH_TO_PROFILES+username);
 		File post = new File(StaticNames.PATH_TO_PROFILES+username+"/Posts/"+id_post);
 		try {
@@ -732,7 +789,11 @@ public class Operations {
 	public static Result rewin_post(String username, String id_post, ConcurrentMap<String, ReadWriteLock> usernames) {
 		if(username == null || id_post == null || usernames == null)
 			throw new IllegalArgumentException();
-		Lock lock=usernames.get(username).readLock();
+		ReadWriteLock lock_r =null;
+		if((lock_r=usernames.get(username)) == null)
+			return new Result(404, "{\"reason\":\"Username does not exists\"}");
+		
+		Lock lock=lock_r.readLock();
 		String dir=StaticNames.PATH_TO_PROFILES+username+"/Posts";
 		Path path_to_posts = Paths.get(dir);
 		Path post_to_rw = Paths.get(StaticNames.PATH_TO_POSTS+id_post);
@@ -770,7 +831,12 @@ public class Operations {
 		if(reac != -1 && reac != 1) {
 			return new Result(400, "{\"reason\":\"Reaction can be 1 or -1\"}");
 		}
-		Lock lock=usernames.get(username).readLock();
+		
+		ReadWriteLock lock_r =null;
+		if((lock_r=usernames.get(username)) == null)
+			return new Result(404, "{\"reason\":\"Username does not exists\"}");
+		
+		Lock lock=lock_r.readLock();
 		Lock lock_rw=null;
 		String path_post=null;
 		String author_post=null;
@@ -834,7 +900,11 @@ public class Operations {
 			throw new IllegalArgumentException();
 		if((comment =comment.trim()).length() == 0)
 			return new Result(400, "{\"reason\":\"Empty comment\"}");
-		Lock lock=usernames.get(username).readLock();
+		ReadWriteLock lock_r =null;
+		if((lock_r=usernames.get(username)) == null)
+			return new Result(404, "{\"reason\":\"Username does not exists\"}");
+		
+		Lock lock=lock_r.readLock();
 		Lock lock_rw=null;
 		String path_post=null;
 		String author_post=null;
@@ -899,7 +969,11 @@ public class Operations {
 			throw new IllegalArgumentException();
 		String file_w=StaticNames.PATH_TO_PROFILES+username+"/"+StaticNames.NAME_FILE_WALLET;
 		File file = new File(file_w);
-		Lock lock=usernames.get(username).readLock();
+		ReadWriteLock lock_r =null;
+		if((lock_r=usernames.get(username)) == null)
+			return new Result(404, "{\"reason\":\"Username does not exists\"}");
+		
+		Lock lock=lock_r.readLock();
 		String res="{";
 		JsonFactory jsonFact=new JsonFactory();
 		JsonParser jsonPar=null;
@@ -921,7 +995,7 @@ public class Operations {
 			}
 			res=res.replaceFirst(", ", "");
 			res=res.concat("}");
-			return new Result(200, "{\"reason\": \"Success\"}");
+			return new Result(200, res);
 		} finally {
 			lock.unlock();
 		}
@@ -939,7 +1013,11 @@ public class Operations {
 			throw new IllegalArgumentException();
 		String file_w=StaticNames.PATH_TO_PROFILES+username+"/"+StaticNames.NAME_FILE_WALLET;
 		File file = new File(file_w);
-		Lock lock=usernames.get(username).readLock();
+		ReadWriteLock lock_r =null;
+		if((lock_r=usernames.get(username)) == null)
+			return new Result(404, "{\"reason\":\"Username does not exists\"}");
+		
+		Lock lock=lock_r.readLock();
 		String res="{";
 		JsonFactory jsonFact=new JsonFactory();
 		JsonParser jsonPar=null;

@@ -32,6 +32,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import com.fasterxml.jackson.core.JsonParseException;
 
+import rec_fol.ReceiveUpdatesInterface;
 import sign_in.Sign_In;
 import sign_in.Sign_In_Interface;
 import sign_in.Tags;
@@ -61,6 +62,8 @@ class OperationsTest {
 	private ConcurrentMap<String, String> logged_users=new ConcurrentHashMap<String, String>();//all logged users
 	private String[][] users_same_tag = new String[NUM_USERS_SAME_ROW][NUM_USERS_SAME_COLON];//each column will contain users who has at least one tag in common 
 	private final int PORT=6969;
+	ConcurrentMap<String, ReceiveUpdatesInterface> users_to_upd=new ConcurrentHashMap<String, ReceiveUpdatesInterface>(); // users that are signed up for the updates about the followers
+
 
 	@BeforeAll
 	void ini() {
@@ -86,7 +89,7 @@ class OperationsTest {
 	@MethodSource("users_and_pas")
 	void test_login(String username, String password) {
 		try {
-			assertEquals(200, Operations.login(username, password, this.logged_users, usernames).getResult());
+			assertEquals(200, Operations.login(username, password, this.logged_users, usernames, users_to_upd).getResult());
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -98,7 +101,7 @@ class OperationsTest {
 	@MethodSource("users_and_pas")
 	void test_login_inc_pas(String username, String password) {
 		try {
-			assertEquals(400, Operations.login(username, password+"TEST", this.logged_users, usernames).getResult());
+			assertEquals(400, Operations.login(username, password+"TEST", this.logged_users, usernames, users_to_upd).getResult());
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -110,7 +113,7 @@ class OperationsTest {
 	@MethodSource("users_and_pas")
 	void test_login_inc_user(String username, String password) {
 		try {
-			Result res =Operations.login(username+"TEST", password+"TEST", this.logged_users, usernames);
+			Result res =Operations.login(username+"TEST", password+"TEST", this.logged_users, usernames, users_to_upd);
 			assertEquals(404, res.getResult());
 			assertEquals("{\"reason\":\"Username does not exists\"}", res.getReason());
 		} catch (IOException e) {
@@ -124,7 +127,7 @@ class OperationsTest {
 	@CsvSource({","})
 	void test_login_inc_val(String username, String password) {
 		Exception e = assertThrows(IllegalArgumentException.class, ()-> {
-			Operations.login(username, password, logged_users, usernames);
+			Operations.login(username, password, logged_users, usernames, users_to_upd);
 		});
 		assertEquals("Incorrect input", e.getMessage());
 
@@ -208,7 +211,7 @@ class OperationsTest {
 						if(Files.exists(Paths.get(StaticNames.PATH_TO_PROFILES+us_to_test+"/Following/"+follow))){
 							already_a_fol=1;
 						}
-						Result res =Operations.follow_user(us_to_test, follow, usernames);
+						Result res =Operations.follow_user(us_to_test, follow, usernames, users_to_upd);
 						if(already_a_fol==0) {
 							assertEquals(200, res.getResult());
 						} else {
@@ -224,7 +227,7 @@ class OperationsTest {
 		}
 		try {
 			if(us_to_test != null && follow != null && us_to_test != follow) {
-				Result res =Operations.follow_user(us_to_test, follow, usernames);
+				Result res =Operations.follow_user(us_to_test, follow, usernames, users_to_upd);
 				assertEquals(400, res.getResult());
 			}
 		} catch (IOException e) {
@@ -283,7 +286,7 @@ class OperationsTest {
 						continue;
 					us_unf=folls[rand.nextInt(folls.length)].getName();
 					try {
-						Result res = Operations.unfollow_user(f, us_unf, usernames);
+						Result res = Operations.unfollow_user(f, us_unf, usernames, users_to_upd);
 						assertEquals(200, res.getResult());
 						assertTrue(!Files.exists(Paths.get(StaticNames.PATH_TO_PROFILES+f+"/Following/"+us_unf)));
 						assertTrue(!Files.exists(Paths.get(StaticNames.PATH_TO_PROFILES+us_unf+"/Followers/"+f)));
@@ -296,7 +299,7 @@ class OperationsTest {
 		}
 		try {
 			if(us_unf != null && us !=null)
-				assertEquals(400, Operations.unfollow_user(us, us_unf, usernames));
+				assertEquals(400, Operations.unfollow_user(us, us_unf, usernames, users_to_upd));
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

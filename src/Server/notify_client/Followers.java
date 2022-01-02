@@ -56,4 +56,14 @@ public class Followers extends RemoteServer implements FollowersInterface {
 			throw new IllegalArgumentException();
 		this.users.get(who_upd).update(new_user);
 	}
+	
+	//@Requires: new_user != null who_upd != null
+	//@Throws: IllegalArgumentException RemoteException
+	//@Effects: updates the client that a user unfollowed 
+	public void update_unfollowed(String unf_user, String who_upd) throws RemoteException {
+		if(unf_user == null || who_upd == null)
+			throw new IllegalArgumentException();
+		this.users.get(who_upd).update_unf(unf_user);
+	}
+	
 }

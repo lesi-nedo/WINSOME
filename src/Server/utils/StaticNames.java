@@ -18,8 +18,8 @@ public class StaticNames {
 	public static final String TRUSTORE_NAME="truststore.jks";
 	public static final String NAME_FILE_TAG="users.json";
 	public static final String NAME_FILE_TAG_TEMP="users_temp";
-	public static final String NAME_FILE_FOL_UPD="not_notified.json";//holds new followers to be notified
-	public static final String NAME_FILE_FOL_UPD_TEMP="not_notified_temp";//file that holds temporary followers
+	public static final String NAME_FILE_FOL_UPD="not_notified_fol.json";//holds new followers to be notified
+	public static final String NAME_FILE_UNFOL_UPD="not_notified_unfol.json";//holds users who unfollowed user x
 	public static final String NAME_FILE_POST="post.json";
 	public static final String NAME_POSTS_STAT="stats.json";//the name of json file that holds all comments/reactions counted by the daemon thread to calculated tha gain
 	public static final String NAME_FILE_WALLET="wallet.json";//the name of the json file that holds the value

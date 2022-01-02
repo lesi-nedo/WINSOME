@@ -126,6 +126,13 @@ public class User_Data {
 		jsonGen.writeStartArray();
 		jsonGen.writeEndArray();
 		jsonGen.close();
+		file=new File(dirName+"/"+ StaticNames.NAME_FILE_UNFOL_UPD);
+		file.createNewFile();
+		jsonGen= jsonFact.createGenerator(file, StaticNames.ENCODING);
+		jsonGen.useDefaultPrettyPrinter();
+		jsonGen.writeStartArray();
+		jsonGen.writeEndArray();
+		jsonGen.close();
 		file=new File(dirName + "/" + "Posts");
 		file.mkdir();
 		create_addTags(user.getTagsIter(), user.getUser_name(), tags_in_mem);
@@ -244,26 +251,29 @@ public class User_Data {
 			lock.unlock();
 		}
 	}
-	//@Requires: username != null, user_to_ins !=null, lock !=null 
+	//@Requires: username != null, user_to_ins !=null, usernames !=null  
 	//@Throws: IllegalArgumentException, IOException
 	//@Modifies: the file in the folder some/path/username/not_notified.json
 	//@Effects: inserts a follower in the json file so to keep truck who hasn't yet been sent 
 	//@param username: the followee
 	//@param user_to_ins: the follower
-	//@param lock: lock associated to the not_notified.json file
-	public static void add_to_not_notified(String username, String user_to_ins, ReadWriteLock lock_r) throws IOException {
-		if(username == null || lock_r == null || user_to_ins == null)
+	//@param usernames: all usernames in the system
+	public static void add_to_not_notified(String username, String user_to_ins, ConcurrentMap<String, ReadWriteLock> usernames, String name_file) throws IOException {
+		if(username == null || usernames == null || user_to_ins == null)
 			throw new IllegalArgumentException();
-		Lock lock = lock_r.readLock();
+		ReadWriteLock lock_r = usernames.get(username);
+		if(lock_r == null)
+			return;
+		Lock lock = lock_r.writeLock();
 		JsonFactory jsonFact=new JsonFactory();
-		File temp_file=new File(StaticNames.PATH_TO_PROFILES+username+"/"+StaticNames.NAME_FILE_FOL_UPD_TEMP+ Thread.currentThread().getName()+".json");
+		File temp_file=new File(StaticNames.PATH_TO_PROFILES+username+"/"+"temp_file"+ Thread.currentThread().getName()+".json");
 		temp_file.createNewFile();
 		JsonGenerator jsonGen = jsonFact.createGenerator(temp_file, StaticNames.ENCODING);
 		jsonGen.useDefaultPrettyPrinter();
 		
 		try {
 			lock.lock();
-			File curr_file=new File(StaticNames.PATH_TO_PROFILES+username+"/"+StaticNames.NAME_FILE_FOL_UPD);
+			File curr_file=new File(StaticNames.PATH_TO_PROFILES+username+"/"+name_file);
 			JsonParser jsonPar = jsonFact.createParser(curr_file);
 			jsonGen.writeStartArray();
 			jsonPar.nextToken();
@@ -274,7 +284,7 @@ public class User_Data {
 			jsonGen.writeEndArray();
 			jsonGen.flush();
 			curr_file.delete();
-			temp_file.renameTo(new File(StaticNames.PATH_TO_PROFILES+username+"/"+StaticNames.NAME_FILE_FOL_UPD));
+			temp_file.renameTo(new File(StaticNames.PATH_TO_PROFILES+username+"/"+name_file));
 			jsonPar.close();
 		} finally {
 			jsonGen.close();
@@ -282,24 +292,30 @@ public class User_Data {
 		}
 	}
 	
-	//@Requires: username !=null cl !=null lock != null
+	//@Requires: username !=null users_to_upd !=null usernames != null
 	//@Throws: IllegalArgumentException, IOException
 	//@Modifies: the not_notified.json file located in some/path/username\
 	//@Effects: sends to the client through the stub all followers that hasn't been notified
 	//@param username: the user to notify
-	//@param cl: the client stub
-	//@param lock: the lock associated to the json file
-	public static void notify_client_fol(String username, ReceiveUpdatesInterface cl, ReadWriteLock lock_r) throws IOException {
-		if(cl == null || lock_r == null || username == null)
+	//@param users_to_upd: all users that added the stub and are notified
+	//@param usernames: all usernames in the system
+	public static void notify_client_fol(String username, ConcurrentMap<String, ReceiveUpdatesInterface> users_to_upd, ConcurrentMap<String, ReadWriteLock> usernames, String name_file) throws IOException {
+		if(users_to_upd == null || usernames == null || username == null)
 			throw new IllegalArgumentException();
-		Lock lock = lock_r.readLock();
+		ReceiveUpdatesInterface cl = users_to_upd.get(username);
+		if(cl == null)
+			return;
+		ReadWriteLock lock_r = usernames.get(username);
+		if(lock_r == null)
+			return;
+		Lock lock = lock_r.writeLock();
 		JsonFactory jsonFact=new JsonFactory();
 		JsonGenerator jsonGen = null;
 		JsonToken curr_tok=null;
 		
 		try {
 			lock.lock();
-			File curr_file=new File(StaticNames.PATH_TO_PROFILES+username+"/"+StaticNames.NAME_FILE_FOL_UPD);
+			File curr_file=new File(StaticNames.PATH_TO_PROFILES+username+"/"+name_file);
 			jsonGen = jsonFact.createGenerator(curr_file, StaticNames.ENCODING);
 			jsonGen.useDefaultPrettyPrinter();
 			JsonParser jsonPar = jsonFact.createParser(curr_file);
@@ -321,6 +337,7 @@ public class User_Data {
 			lock.unlock();
 		}
 	}
+	
 	//@Requires: PATH_TO_SSL != null
 	//@Throws: illegalArgumentException
 	//@Effects: sets different properties need for the SslRMIClientSocketFactory and SslRMIServerSocketFactory

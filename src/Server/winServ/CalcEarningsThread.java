@@ -8,6 +8,9 @@ import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.TimerTask;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -20,19 +23,21 @@ import com.fasterxml.jackson.core.JsonToken;
 
 import utils.StaticNames;
 
-public class CalcEarningsThread implements Runnable {
+public class CalcEarningsThread extends TimerTask {
 	private int  port;
 	private InetAddress addr;
 	private ConcurrentMap<String, ReadWriteLock> usernames;
-	private HashMap<String, Double> users_eatnings;
+	private HashMap<String, Double> users_earnings;
 	private float reward_author;
+	private float reward_others;
 	
 	public CalcEarningsThread(int port, InetAddress addr, ConcurrentMap<String, ReadWriteLock> usernames, float reward_author) {
 		this.port=port;
 		this.addr=addr;
 		this.usernames=usernames;
-		this.users_eatnings=new HashMap<String, Double>();
+		this.users_earnings=new HashMap<String, Double>();
 		this.reward_author=reward_author;
+		this.reward_others=1-this.reward_author;
 	}
 	
 	@Override
@@ -62,7 +67,7 @@ public class CalcEarningsThread implements Runnable {
 				for(File post: all_posts) {
 					if(Files.exists(post.toPath()) && !Files.isSymbolicLink(post.toPath())) {
 						String post_name=post.getName();
-						this.users_eatnings.put(user, 0.0);
+						this.users_earnings.put(user, 0.0);
 						int num_old_thmb_up=0;//the number of positive reactions to the post y
 						int num_old_thmb_down=0; //the number of negative reactions to the post y
 						int num_old_iter=0;// the number of iterations done
@@ -72,10 +77,12 @@ public class CalcEarningsThread implements Runnable {
 						int num_new_thmb_down=0;// number of new + old thumbs_donwn
 						int num_new_iter;//old number of iterations +1
 						long checked =0; //timestamp that indicates the last calculation
-						var wrapper = new Object() { double earnings=0; }; //earnings calculated
+						double earnings=0; 
+						double author=0; 
+						double others=0; //earnings calculated
 						String tok = null;
 						File post_file=null;
-						var wrapper2 = new Object() { int num_cur=1; }; //the total number of curators
+						int num_cur=1;//the total number of curators
 						double first_arg=0;//argument to the first log
 						double second_arg=0;//argument to the second log
 						
@@ -121,7 +128,7 @@ public class CalcEarningsThread implements Runnable {
 								//checks the last time modify of the folder if greater than the last time the calculation was performed
 								//then a user has added a new comment 
 								if(d.lastModified() >=old_last_calc) {
-									this.users_eatnings.put(d.getName(), 0.0);//we add to hashmap all new commentators
+									this.users_earnings.put(d.getName(), 0.0);//we add to hashmap all new commentators
 									second_arg=+2/(1+Math.pow(Math.E, -(num_coms-1)));
 								}
 							}
@@ -129,7 +136,7 @@ public class CalcEarningsThread implements Runnable {
 								if(th_up.lastModified() > old_last_calc) {
 									num_new_thmb_up++;
 									String name_us=th_up.getName();
-									this.users_eatnings.put(name_us.substring(0, name_us.lastIndexOf('.')), 0.0);
+									this.users_earnings.put(name_us.substring(0, name_us.lastIndexOf('.')), 0.0);
 								}
 							}
 						} finally{
@@ -138,18 +145,20 @@ public class CalcEarningsThread implements Runnable {
 						}
 						num_new_iter=num_old_iter+1;
 						first_arg=Math.max(num_new_thmb_up -(num_new_thmb_down - num_old_thmb_down), 0) +1;
-						wrapper.earnings= (Math.log(first_arg)+Math.log(second_arg+1))/num_new_iter;
-						wrapper2.num_cur=this.users_eatnings.size();
-						wrapper2.num_cur=wrapper2.num_cur == 0? 1 :wrapper2.num_cur;
-						this.users_eatnings.replaceAll((u, e)-> {
-							if(u.equals(us.getName())) {
-								double ear_au=wrapper.earnings*reward_author;
-								wrapper.earnings =- ear_au;
-								return e+ear_au;
+						earnings= (Math.log(first_arg)+Math.log(second_arg+1))/num_new_iter;
+						num_cur=this.users_earnings.size();
+						num_cur=num_cur == 0 ? 1 : num_cur-1;
+						author=earnings*this.reward_author;
+						others=earnings*this.reward_others;
+						for(Map.Entry<String, Double> entr: this.users_earnings.entrySet()) {
+							if(entr.getKey().equals(user)) {
+								entr.setValue(Double.valueOf(entr.getValue()+author));
 							} else {
-								return e+(wrapper.earnings/wrapper2.num_cur);
+								entr.setValue(Double.valueOf(entr.getValue()+(others/num_cur)));
 							}
-						});
+						}
+						
+						this.users_earnings.forEach((u, e) -> System.out.println(u+ "  " +e));
 						
 						//updates the stat file
 						jsonGen = jsonFact.createGenerator(post_file, StaticNames.ENCODING);
@@ -165,36 +174,6 @@ public class CalcEarningsThread implements Runnable {
 						
 					}
 				}
-				this.users_eatnings.forEach((u,e) ->{
-					File temp_file = new File(StaticNames.PATH_TO_PROFILES+u+"temp_wall.json");
-					File file = new File(StaticNames.PATH_TO_PROFILES+u+StaticNames.NAME_FILE_WALLET);
-					JsonParser jsonPar2=null;
-					JsonGenerator jsonGen2=null;
-					try {
-						jsonPar2 = jsonFact.createParser(file);
-						jsonGen2= jsonFact.createGenerator(temp_file, StaticNames.ENCODING);
-						jsonPar2.nextToken();
-						jsonGen2.copyCurrentEvent(jsonPar2);
-						jsonGen2.writeNumberField("value", e);
-						jsonGen2.writeNumberField("timestamp", System.currentTimeMillis());
-						while(jsonPar2.nextToken()!=JsonToken.END_OBJECT)
-							jsonGen2.copyCurrentStructure(jsonPar2);
-						jsonGen2.copyCurrentEvent(jsonPar2);
-						file.delete();
-						temp_file.renameTo(file);
-					} catch (IOException e1) {
-						// TODO Auto-generated catch block
-						e1.printStackTrace();
-					}
-				});
-				int len_msg=StaticNames.MSG_NOTIFY_MULTICAS.length();
-				ByteBuffer buf = ByteBuffer.allocate(Integer.BYTES+len_msg);
-				buf.putInt(len_msg);
-				buf.put(StaticNames.MSG_NOTIFY_MULTICAS.getBytes());
-				DatagramSocket sock = new DatagramSocket();
-				DatagramPacket dat = new DatagramPacket(buf.array(), buf.position(), this.addr, this.port);
-				sock.send(dat);
-				sock.close();
 			} catch (JsonParseException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -205,6 +184,50 @@ public class CalcEarningsThread implements Runnable {
 				lock_read.unlock();
 			}
 			
+		}
+		this.users_earnings.forEach((u,e) ->{
+			if(e == 0.0f)
+				return;
+			File temp_file = new File(StaticNames.PATH_TO_PROFILES+u+"/"+"temp_wallet.json");
+			File file = new File(StaticNames.PATH_TO_PROFILES+u+"/"+StaticNames.NAME_FILE_WALLET);
+			JsonParser jsonPar2=null;
+			JsonGenerator jsonGen2=null;
+			JsonToken curr_tok = null;
+			try {
+				jsonPar2 = jsonFact.createParser(file);
+				jsonGen2= jsonFact.createGenerator(temp_file, StaticNames.ENCODING);
+				jsonGen2.useDefaultPrettyPrinter();
+				curr_tok = jsonPar2.nextToken();
+				if(curr_tok != null) {
+					jsonGen2.copyCurrentEvent(jsonPar2);
+					jsonGen2.writeNumberField("value", e);
+					jsonGen2.writeNumberField("timestamp", System.currentTimeMillis());
+					while(jsonPar2.nextToken()!=JsonToken.END_OBJECT)
+						jsonGen2.copyCurrentStructure(jsonPar2);
+					jsonGen2.copyCurrentEvent(jsonPar2);
+				}  else {
+					jsonGen2.writeStartObject();
+					jsonGen2.writeEndObject();
+				}
+				file.delete();
+				jsonGen2.flush();
+				temp_file.renameTo(file);
+			} catch (IOException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+		});
+		try {
+			int len_msg=StaticNames.MSG_NOTIFY_MULTICAS.length();
+			ByteBuffer buf = ByteBuffer.allocate(Integer.BYTES+len_msg);
+			buf.putInt(len_msg);
+			buf.put(StaticNames.MSG_NOTIFY_MULTICAS.getBytes());
+			DatagramSocket sock = new DatagramSocket();
+			DatagramPacket dat = new DatagramPacket(buf.array(), buf.position(), this.addr, this.port);
+			sock.send(dat);
+			sock.close();
+		} catch(IOException e) {
+			e.printStackTrace();
 		}
 	}
 	
