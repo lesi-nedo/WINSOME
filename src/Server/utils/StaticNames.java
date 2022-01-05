@@ -1,5 +1,6 @@
 package utils;
 
+
 import com.fasterxml.jackson.core.JsonEncoding;
 
 public class StaticNames {

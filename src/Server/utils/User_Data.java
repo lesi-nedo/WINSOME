@@ -135,6 +135,8 @@ public class User_Data {
 		jsonGen.close();
 		file=new File(dirName + "/" + "Posts");
 		file.mkdir();
+		file=new File(dirName + "/" + "Blog");
+		file.mkdir();
 		create_addTags(user.getTagsIter(), user.getUser_name(), tags_in_mem);
 	}
 	//@Requires: file != null

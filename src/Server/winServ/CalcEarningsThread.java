@@ -9,7 +9,6 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.Lock;
@@ -150,14 +149,15 @@ public class CalcEarningsThread extends TimerTask {
 						num_cur=num_cur == 0 ? 1 : num_cur-1;
 						author=earnings*this.reward_author;
 						others=earnings*this.reward_others;
-						for(Map.Entry<String, Double> entr: this.users_earnings.entrySet()) {
-							if(entr.getKey().equals(user)) {
-								entr.setValue(Double.valueOf(entr.getValue()+author));
-							} else {
-								entr.setValue(Double.valueOf(entr.getValue()+(others/num_cur)));
+						if(earnings > 0.0d) {
+							for(Map.Entry<String, Double> entr: this.users_earnings.entrySet()) {
+								if(entr.getKey().equals(user)) {
+									entr.setValue(Double.valueOf(entr.getValue()+author));
+								} else {
+									entr.setValue(Double.valueOf(entr.getValue()+(others/num_cur)));
+								}
 							}
 						}
-						
 						this.users_earnings.forEach((u, e) -> System.out.println(u+ "  " +e));
 						
 						//updates the stat file
@@ -186,7 +186,7 @@ public class CalcEarningsThread extends TimerTask {
 			
 		}
 		this.users_earnings.forEach((u,e) ->{
-			if(e == 0.0f)
+			if(e == 0.0d)
 				return;
 			File temp_file = new File(StaticNames.PATH_TO_PROFILES+u+"/"+"temp_wallet.json");
 			File file = new File(StaticNames.PATH_TO_PROFILES+u+"/"+StaticNames.NAME_FILE_WALLET);

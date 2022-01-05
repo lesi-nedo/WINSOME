@@ -72,6 +72,8 @@ public class Result implements ResultInterface {
 				return "Forbidden";
 		case 404:
 				return "Not Found";
+		case 409: 
+			    return "Conflict";
 		case 410:
 				return "Gone";
 		case 500:

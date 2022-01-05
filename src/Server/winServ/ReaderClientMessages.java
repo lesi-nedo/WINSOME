@@ -3,26 +3,25 @@ package winServ;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.NoSuchElementException;
 import java.util.StringTokenizer;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 
 import org.apache.http.Header;
-import org.apache.http.HeaderElement;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpEntityEnclosingRequest;
 import org.apache.http.HttpException;
 import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
-import org.apache.http.NameValuePair;
 import org.apache.http.ParseException;
 import org.apache.http.ProtocolVersion;
 import org.apache.http.RequestLine;
@@ -50,7 +49,6 @@ public class ReaderClientMessages implements Runnable {
 	 * Overview: each thread executing this class will process the request from the client by calling static methods from class Operations.
 	 * 
 	 */
-	private Selector sel;
 	private SelectionKey key;
 	private ConcurrentMap<String, ReadWriteLock> usernames;//all names of the users in the system
 	private ConcurrentMap<String, ReadWriteLock> tags_in_mem;// all tags specified by the users
@@ -58,14 +56,23 @@ public class ReaderClientMessages implements Runnable {
 	private int BUFF_SIZE; //the ByteBuffer size i.e the maximum bytes readable from the socket
 	private ConcurrentMap<String, ReceiveUpdatesInterface> users_to_upd;
 	private SessionInputBufferImpl ses_inp;
-	public ReaderClientMessages(Selector sel, SelectionKey key, int BUFF_SIZE, ConcurrentMap<String, ReadWriteLock> usernames, ConcurrentMap<String, ReadWriteLock> tags_in_mem, ConcurrentMap<String, String> logged_users, ConcurrentMap<String, ReceiveUpdatesInterface> users_to_upd) {
-		this.sel=sel;
+	private BlockingQueue<HttpWrapper> queue; // all keys that have been served will end up here 
+	private Selector sel;
+	private AtomicBoolean wake_called;
+	private int mcast_port = 0;
+	private InetAddress mcast_addr = null;
+	
+	public ReaderClientMessages(Selector sel, SelectionKey key, int BUFF_SIZE, ConcurrentMap<String, ReadWriteLock> usernames, ConcurrentMap<String, ReadWriteLock> tags_in_mem, 
+			ConcurrentMap<String, String> logged_users, ConcurrentMap<String, ReceiveUpdatesInterface> users_to_upd, BlockingQueue<HttpWrapper> queue, AtomicBoolean wake_called) {
 		this.key=key;
 		this.usernames=usernames;
 		this.tags_in_mem=tags_in_mem;
 		this.logged_users=logged_users;
 		this.BUFF_SIZE = BUFF_SIZE;
 		this.users_to_upd=users_to_upd;
+		this.queue=queue;
+		this.sel=sel;
+		this.wake_called=wake_called;
 	}
 	@Override
 	public void run() {
@@ -123,6 +130,7 @@ public class ReaderClientMessages implements Runnable {
 				StringTokenizer t = new StringTokenizer(uri, "/");
 				String op = t.nextToken();
 				resp = WinsomeServer.METHODS_OP.get(method).get(op).apply(this, req);
+				System.out.println("SSS");
 				HttpEntity entity = resp.getEntity();
 				entity_len = entity != null ?entity.toString().getBytes().length: 0;
 				resp_wrp=new HttpWrapper(resp, resp.toString().getBytes().length + entity_len, closed);
@@ -133,16 +141,30 @@ public class ReaderClientMessages implements Runnable {
 			} finally {
 				try {
 					in_str.close();
-					c_sk.register(sel, SelectionKey.OP_WRITE, resp_wrp);
-				} catch (ClosedChannelException e1) {
+					System.out.println(resp_wrp);
+					resp_wrp.set_upd_op_type(SelectionKey.OP_WRITE);
+					resp_wrp.set_socket(c_sk);
+					this.queue.put(resp_wrp);
+					if(this.wake_called.compareAndSet(false, true)) {
+						this.sel.wakeup();
+					}
+					
+				} catch (InterruptedException e) {
 					// TODO Auto-generated catch block
-					e1.printStackTrace();
+					e.printStackTrace();
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}
 		}
+	}
+	
+	//@Effects: Updates the port and InetAddress of the multicast
+	//@param port: the port number
+	public void set_mcast_port_addr(int port, InetAddress addr) {
+		this.mcast_port=port;
+		this.mcast_addr=addr;
 	}
 	//@Effects: gets username ad session_id from cookie header checks if is correct than computes a sting in format json that holds all users with at least one tag in common
 	//@Return: the response with appropriate code
@@ -570,7 +592,7 @@ public class ReaderClientMessages implements Runnable {
 			}
 			if(password == null || username == null)
 				return create_resp(400, "Bad Request");
-			Result res = Operations.login(username, password, this.logged_users, this.usernames, this.users_to_upd);
+			Result res = Operations.login(username, password, this.logged_users, this.usernames, this.users_to_upd, this.mcast_port, this.mcast_addr);
 			entity.setContentType("application/json");
 			entity.setContentLength(res.getReason().length());
 			entity.setContent(new ByteArrayInputStream(res.getReason().getBytes()));
@@ -739,7 +761,7 @@ public class ReaderClientMessages implements Runnable {
 	private HttpResponse create_resp(int code, String reason_ph) {
 		HttpResponse resp = new BasicHttpResponse(new ProtocolVersion("HTTP", 1, 1), code , reason_ph);
 		BasicHttpEntity entity = new BasicHttpEntity();
-		String con = code + " " +reason_ph;
+		String con = "{\"reason\":" + "\"" +reason_ph +"\"}";
 		resp.addHeader("Date", WinsomeServer.FORMATTER.format(Calendar.getInstance().getTime()));
 		resp.addHeader("Access-Control-Allow-Origin", "*");
 		resp.addHeader("Content-Language", "en-US");
@@ -747,7 +769,7 @@ public class ReaderClientMessages implements Runnable {
 		resp.addHeader("Last-Modified", WinsomeServer.FORMATTER.format(Calendar.getInstance().getTime()));
 		resp.addHeader("Server", "WINSOME");
 		resp.addHeader("Cache-Control", "max-age=60");
-		entity.setContentType("text/plain; charset=utf-8");
+		entity.setContentType("application/json");
 		entity.setContentLength(con.length());
 		entity.setContent(new ByteArrayInputStream(con.getBytes()));
 		resp.setEntity(entity);

@@ -7,6 +7,8 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpException;
@@ -21,12 +23,16 @@ import org.apache.http.impl.io.IdentityOutputStream;
 import org.apache.http.impl.io.SessionOutputBufferImpl;
 
 public class WriterMessagesToClient implements Runnable {
-	private Selector sel;
 	private SelectionKey key;
+	private BlockingQueue<HttpWrapper> queue;
+	private AtomicBoolean wake_called;
+	Selector sel;
 	
-	public WriterMessagesToClient (Selector sel, SelectionKey key) {
-		this.sel=sel;
+	public WriterMessagesToClient (Selector sel, SelectionKey key, BlockingQueue<HttpWrapper> queue, AtomicBoolean wake_called) {
 		this.key=key;
+		this.queue=queue;
+		this.wake_called=wake_called;
+		this.sel=sel;
 	}
 	
 	public void run () {
@@ -69,7 +75,12 @@ public class WriterMessagesToClient implements Runnable {
 				if(!buf.hasRemaining()) {
 					if(!resp_wrp.getStatus() && c_sk.isConnected()) {
 						buf.clear();
-						c_sk.register(sel, SelectionKey.OP_READ, null);
+						HttpWrapper wrp = new HttpWrapper(null, 0, false);
+						wrp.set_socket(c_sk);
+						wrp.set_upd_op_type(SelectionKey.OP_READ);
+						queue.put(wrp);
+						if(this.wake_called.compareAndSet(false, true))
+							sel.wakeup();
 					} else {
 						c_sk.close();
 					}
@@ -84,6 +95,9 @@ public class WriterMessagesToClient implements Runnable {
 					// TODO Auto-generated catch block
 					e1.printStackTrace();
 				}
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			} finally {
 				try {
 					out_stream.close();

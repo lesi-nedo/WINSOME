@@ -3,6 +3,7 @@ package winServ;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
@@ -12,11 +13,14 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.Timer;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.function.BiFunction;
 
@@ -73,13 +77,16 @@ public class WinsomeServer {
 	private ConcurrentMap<String, ReadWriteLock> usernames;
 	private ConcurrentMap<String, String> logged_users;
 	private volatile boolean can_run;//this variable gets update by the shutdownhook
-	private final SingletonCoordinator coord = SingletonCoordinator.getCoordinator();
+	private BlockingQueue<HttpWrapper> queue = new LinkedBlockingQueue<HttpWrapper>();
+	private AtomicBoolean wake_called;
+	private SocketChannel client; 
+	private Selector sel; 
 	
 	private int mcast_port;
 	private InetAddress mcast_addr;
 	private int period;
 	private float reward_author;
-	Timer timer;
+	private Timer timer;
 	
 	public WinsomeServer(int port, String IP_serv, int BUFF_LIMIT, ConcurrentMap<String, ReceiveUpdatesInterface> users_to_upd, ConcurrentMap<String, ReadWriteLock> tags_in_mem, ConcurrentMap<String, ReadWriteLock> usernames) {
 		this.port=port;
@@ -95,13 +102,14 @@ public class WinsomeServer {
 		this.period=0;
 		this.reward_author=0;
 		this.timer= new Timer();
+		this.wake_called=new AtomicBoolean(false);
 	}
 	public void start_serv(int timeout) throws TooManyTagsException {
 		try(ServerSocketChannel s_cha=ServerSocketChannel.open()){
 			s_cha.socket().bind(new InetSocketAddress(InetAddress.getByName(this.IP_serv), this.port));
 			s_cha.socket().setSoTimeout(timeout);
 			s_cha.configureBlocking(false);
-			Selector sel = Selector.open();
+			sel = Selector.open();
 			s_cha.register(sel, SelectionKey.OP_ACCEPT);
 			this.exec_pool= (ThreadPoolExecutor) Executors.newCachedThreadPool();
 			
@@ -113,9 +121,14 @@ public class WinsomeServer {
 			thread.run();
 			while(this.can_run) {
 				this.timer.schedule(new CalcEarningsThread(this.mcast_port, this.mcast_addr, this.usernames, this.reward_author), this.period);
-				coord.set_main_blocking();
-				if(sel.select(5000)==0)
-					continue;
+				while(sel.select(5000)==0) {
+					this.wake_called.set(false);
+					reg_from_queue();
+					if(sel.selectNow() > 0) {
+						break;
+					}
+				}
+				this.wake_called.set(false);
 				Set<SelectionKey> sel_key=sel.selectedKeys();
 				Iterator<SelectionKey> iter=sel_key.iterator();
 				while(iter.hasNext()) {
@@ -134,11 +147,12 @@ public class WinsomeServer {
 							System.out.println(this.num_active_con);
 						}
 						else if(key.isValid() && key.isReadable()) {
-							ReaderClientMessages task = new ReaderClientMessages(sel, key, this.BUFF_LIMIT, this.usernames, this.tags_in_mem, logged_users, this.users_to_upd);
+							ReaderClientMessages task = new ReaderClientMessages(sel, key, this.BUFF_LIMIT, this.usernames, this.tags_in_mem, logged_users, this.users_to_upd, queue, this.wake_called);
+							task.set_mcast_port_addr(mcast_port, mcast_addr);
 							key.cancel();
 							this.exec_pool.execute(task);
 						} else if(key.isValid() && key.isWritable()) {
-							WriterMessagesToClient wrt = new WriterMessagesToClient(sel, key);
+							WriterMessagesToClient wrt = new WriterMessagesToClient(sel, key, queue, this.wake_called);
 							key.cancel();
 							this.exec_pool.execute(wrt);
 						}
@@ -174,6 +188,25 @@ public class WinsomeServer {
 	
 	public void end_me() {
 		this.can_run=false;
+	}
+	
+	public int getMcasPort() {
+		return this.mcast_port;
+	}
+	
+	public InetAddress getMcas_addr() {
+		return this.mcast_addr;
+	}
+	
+	private void reg_from_queue() throws ClosedChannelException {
+		if(!this.queue.isEmpty()) {
+			HttpWrapper wrp;
+			while((wrp = this.queue.poll()) != null) {
+				this.client = wrp.get_client();
+				this.client.register(this.sel, wrp.get_op(), wrp);
+			}
+				
+		}
 	}
 		
 }

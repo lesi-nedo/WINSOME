@@ -3,6 +3,7 @@ package winServ;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpClient.Redirect;
@@ -59,7 +60,8 @@ public class Operations {
 	//@param password: the password of the user
 	//@param usernames: the concurrent data structure that holds all username of the social network with relative locks
 	//@param logged_users: the concurrent data structure that holds all username and sessionId of the logged users
-	public static Result login(String username, String password, ConcurrentMap<String, String> logged_users, ConcurrentMap<String, ReadWriteLock> usernames, ConcurrentMap<String, ReceiveUpdatesInterface> users_to_upd) throws JsonParseException, IOException {
+	public static Result login(String username, String password, ConcurrentMap<String, String> logged_users, ConcurrentMap<String, ReadWriteLock> usernames, 
+			ConcurrentMap<String, ReceiveUpdatesInterface> users_to_upd, int mcas_port, InetAddress mcast_addr) throws JsonParseException, IOException {
 		if(username == null || password == null || usernames == null || logged_users == null) 
 			throw new IllegalArgumentException("Incorrect input");
 		File user=new File(StaticNames.PATH_TO_PROFILES+username+"/"+StaticNames.NAME_JSON_USER);
@@ -97,7 +99,7 @@ public class Operations {
 								User_Data.notify_client_fol(username, users_to_upd, usernames, StaticNames.NAME_FILE_UNFOL_UPD);
 								lock.lock();
 								is_locked=1;
-								return new Result(200, "{\"reason\":\"Correct password\"}");
+								return new Result(200, "{\"port\":" +mcas_port +", \"address\":\""+mcast_addr.getHostAddress() + "\"}");
 							} else return new Result(400, "{\"reason\":\"Incorrect Password\"}");
 						}
 					}
@@ -149,14 +151,14 @@ public class Operations {
 		TreeSet<String> user_to_ret = new TreeSet<String>();
 		String result="{";
 		if((rw_lock=usernames.get(username)) == null)
-			return new Result(404, "{\"reasone\":\"User not found\"}");
+			return new Result(404, "{\"reason\":\"User not found\"}");
 		
 		Tags tags=getUserTags(user, rw_lock.readLock());
 		Iterator<String> tags_iter=null;
 
 		
 		if(tags == null)
-			return new Result(404, "{\"reasone\":\"User not found\"}");
+			return new Result(404, "{\"reason\":\"User not found\"}");
 		tags_iter=tags.iterator();
 		while(tags_iter.hasNext()) {
 			String tag = tags_iter.next();
@@ -222,7 +224,7 @@ public class Operations {
 		try {
 			lock.lock();
 			if(!(new File(StaticNames.PATH_TO_PROFILES+username)).exists())
-				return new Result(404, "{\"reasone\":\"User not found\"}");
+				return new Result(404, "{\"reason\":\"User not found\"}");
 			Stream.of((new File(StaticNames.PATH_TO_PROFILES+username+"/" +"Following")).listFiles()).forEach(path -> {
 				try {
 					if(path.isDirectory()) {
@@ -285,6 +287,8 @@ public class Operations {
 				User_Data.add_to_not_notified(follow_user, username, usernames, StaticNames.NAME_FILE_FOL_UPD);
 				user_to_follow_lock.lock();
 				is_locked=1;
+			} else {
+				use_stub.update(follow_user);
 			}
 			return new Result(200, "{\"reason\":\"The user: " + username + " now follows " + follow_user+"\"}");
 		}catch (FileAlreadyExistsException e) {
@@ -336,6 +340,8 @@ public class Operations {
 					User_Data.add_to_not_notified(unfollow_user, username, usernames, StaticNames.NAME_FILE_UNFOL_UPD);		
 					user_to_unfollow_lock.lock();
 					is_locked=1;
+				} else {
+					use_stub.update_unf(unfollow_user);
 				}
 				return new Result(200, "{\"reason\":\"The user: " + username + " unfollowed " + unfollow_user+"\"}");
 			} finally {
@@ -440,12 +446,12 @@ public class Operations {
 		try {
 			lock.lock();
 			if(!(new File(dir_name).exists())){
-				return new Result(404, "{\"reasone\":\"User not found\"}");
+				return new Result(404, "{\"reason\":\"User not found\"}");
 			}
-			dir_name=dir_name+"/"+"Posts";
+			dir_name=dir_name+"/Blog";
 			Stream.of((new File(dir_name)).listFiles()).forEach(path -> {
 				try {
-					if(path.isDirectory() && !Files.isSymbolicLink(path.toPath())) {
+					if(path.isDirectory() && path.exists()) {
 						String temp_res="";
 						int times_f=0;
 	
@@ -478,7 +484,7 @@ public class Operations {
 							// TODO Auto-generated catch block
 							e.printStackTrace();
 						}
-					} else if(Files.isSymbolicLink(path.toPath()) && !path.exists()) {
+					} else if(!path.exists()) {
 						path.delete();
 					}
 				} catch(NullPointerException e) {
@@ -503,7 +509,7 @@ public class Operations {
 	//@param title: the title of the post
 	//@para content: the content of the post
 	//@param usernames: the names of all users with locks
-	public static Result create_post(String username, String title, String content, ConcurrentMap<String, ReadWriteLock> usernames) throws IOException {
+	public static Result create_post(String username, String title, String content, ConcurrentMap<String, ReadWriteLock> usernames) {
 		if(username == null || title == null || content ==null || usernames== null)
 			throw new IllegalArgumentException();
 		ReadWriteLock lock_r =null;
@@ -514,7 +520,12 @@ public class Operations {
 		String dir_name=StaticNames.PATH_TO_PROFILES+username;
 		JsonFactory jsonFact=new JsonFactory();
 		JsonGenerator jsonGen = null;
+		String follower = null;
+		Lock lock_follower=null;
+		File[] followers  = null;
 		Path sym_post = Paths.get(StaticNames.PATH_TO_POSTS+id_post);
+		
+		
 		title=title.trim();
 		content=content.trim();
 		if(title.length()>20 || content.length() > 500 || title.length()==0 || content.length() == 0)
@@ -534,6 +545,7 @@ public class Operations {
 				id_post=User_Data.generateString(LENGTH_OF_POST_ID);	
 			}
 			Files.createSymbolicLink(sym_post, Paths.get(dir_name).toAbsolutePath());
+			Files.createSymbolicLink(Paths.get(StaticNames.PATH_TO_PROFILES+username+"/Blog/" +id_post), Paths.get(dir_name).toAbsolutePath());
 			file=new File(dir_name+"/stats.json");
 			file.createNewFile();
 			jsonGen = jsonFact.createGenerator(file, StaticNames.ENCODING);
@@ -565,7 +577,23 @@ public class Operations {
 			jsonGen.writeEndObject();
 			jsonGen.flush();
 			jsonGen.close();
-			return new Result(201, "{\"reason\":\"Post has been succesfully added\"}");
+			followers = new File(StaticNames.PATH_TO_PROFILES+username+"/Followers").listFiles();
+			for(File fol : followers) {
+				follower=fol.getName();
+				lock_follower=usernames.get(follower).readLock();
+				try {
+					lock_follower.lock();
+					Files.createSymbolicLink(Paths.get(StaticNames.PATH_TO_PROFILES+follower+"/Posts/" +id_post), Paths.get(dir_name).toAbsolutePath());
+				} catch(FileAlreadyExistsException e) {
+					return new Result(409, "{\"reason\":\"Server has generated an id for the post already in use, try again\"}");
+				} finally {
+					lock_follower.unlock();
+				}
+			}
+			return new Result(201, "{\"reason\":\"Post has been succesfully added with id: "+id_post +"\"}");
+		} catch (Exception e) {
+			e.printStackTrace();
+			return new Result(400, "{\"reason\":\"Something went wrong\"}");
 		} finally {
 			lock.unlock();
 		}
@@ -584,7 +612,7 @@ public class Operations {
 		String res="{";
 		ReadWriteLock lock_r =usernames.get(username);
 		if(lock_r == null)
-			return new Result(404, "{\"reasone\":\"User not found\"}");
+			return new Result(404, "{\"reason\":\"User not found\"}");
 		Lock lock = lock_r.readLock();
 		File dir=null;
 		JsonFactory jsonFact = new JsonFactory();
@@ -595,7 +623,7 @@ public class Operations {
 			lock.lock();
 			dir=new File(dir_name);
 			if(!dir.exists())
-				return new Result(404, "{\"reasone\":\"User not found\"}");
+				return new Result(404, "{\"reason\":\"User not found\"}");
 			dir_name=dir_name+"/"+"Posts";
 			dir=new File(dir_name);
 			File[] files = dir.listFiles();
@@ -609,7 +637,7 @@ public class Operations {
 						lock_author=usernames.get(author).readLock();
 						lock_author.lock();
 					}
-					if(f.isDirectory()) {
+					if(f.isDirectory() && f.exists()) {
 						res=res.concat(", \""+f.getName()+"\":{");
 						String temp_res="";
 						dir = new File(dir_name +"/"+f.getName()+"/"+StaticNames.NAME_FILE_POST);
@@ -665,7 +693,7 @@ public class Operations {
 		try {
 			username=get_author(id_post);
 		} catch(NoSuchFileException e) {
-			return new Result(404, "{\"reasone\":\"Post not found\"}");
+			return new Result(404, "{\"reason\":\"Post not found\"}");
 		}
 		Lock lock= usernames.get(username).readLock();
 		String res="{";
@@ -680,17 +708,17 @@ public class Operations {
 		try {
 			lock.lock();
 			if(!dir.exists()) {
-				return new Result(404, "{\"reasone\":\"User not found\"}");
+				return new Result(404, "{\"reason\":\"User not found\"}");
 			}
 			if(!post.exists()) {
-				return new Result(404, "{\"reasone\":\"Post not found\"}");
+				return new Result(404, "{\"reason\":\"Post not found\"}");
 			}
 			jsonPar=jsonFact.createParser(post);
 			jsonPar.nextToken();
 			while(jsonPar.nextToken() != JsonToken.END_OBJECT) {
 				String curr=jsonPar.getText();
 				if(curr == null)
-					return new Result(204, "{\"reasone\":\"The post is not pubblished yet\"}");
+					return new Result(204, "{\"reason\":\"The post is not pubblished yet\"}");
 				if(curr.equals("content") || curr.equals("title")) {
 					times_f++;
 					res=res.concat(", \""+curr+"\":");
@@ -733,7 +761,7 @@ public class Operations {
 			res=res.concat("}");
 			return new Result(200, res);
 		} catch(FileNotFoundException e) {
-			return new Result(204, "{\"reasone\":\"The post was just deleted\"}");
+			return new Result(204, "{\"reason\":\"The post was just deleted\"}");
 		} finally {
 			lock.unlock();
 		}
@@ -806,6 +834,7 @@ public class Operations {
 			if(Files.exists(Paths.get(dir+"/"+id_post)))
 				return new Result(400, "{\"reason\":\"The post has been rewinded already\"}");
 			Files.createSymbolicLink(Paths.get(dir+"/"+id_post), post_to_rw.toRealPath());
+			Files.createSymbolicLink(Paths.get(StaticNames.PATH_TO_PROFILES+username+"/Blog/" +id_post), post_to_rw.toRealPath());
 			return new Result(200, "{\"reason\":\"Post got rewinded\"}");
 		} catch (FileAlreadyExistsException e) { 
 			e.printStackTrace();

@@ -14,8 +14,6 @@ import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.ReadWriteLock;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.AfterAll;
@@ -89,7 +87,7 @@ class OperationsTest {
 	@MethodSource("users_and_pas")
 	void test_login(String username, String password) {
 		try {
-			assertEquals(200, Operations.login(username, password, this.logged_users, usernames, users_to_upd).getResult());
+			assertEquals(200, Operations.login(username, password, this.logged_users, usernames, users_to_upd, 0 , null).getResult());
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -101,7 +99,7 @@ class OperationsTest {
 	@MethodSource("users_and_pas")
 	void test_login_inc_pas(String username, String password) {
 		try {
-			assertEquals(400, Operations.login(username, password+"TEST", this.logged_users, usernames, users_to_upd).getResult());
+			assertEquals(400, Operations.login(username, password+"TEST", this.logged_users, usernames, users_to_upd, 0, null).getResult());
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -113,7 +111,7 @@ class OperationsTest {
 	@MethodSource("users_and_pas")
 	void test_login_inc_user(String username, String password) {
 		try {
-			Result res =Operations.login(username+"TEST", password+"TEST", this.logged_users, usernames, users_to_upd);
+			Result res =Operations.login(username+"TEST", password+"TEST", this.logged_users, usernames, users_to_upd, 0, null);
 			assertEquals(404, res.getResult());
 			assertEquals("{\"reason\":\"Username does not exists\"}", res.getReason());
 		} catch (IOException e) {
@@ -127,7 +125,7 @@ class OperationsTest {
 	@CsvSource({","})
 	void test_login_inc_val(String username, String password) {
 		Exception e = assertThrows(IllegalArgumentException.class, ()-> {
-			Operations.login(username, password, logged_users, usernames, users_to_upd);
+			Operations.login(username, password, logged_users, usernames, users_to_upd,0, null);
 		});
 		assertEquals("Incorrect input", e.getMessage());
 
@@ -317,22 +315,12 @@ class OperationsTest {
 			all_fol_posted.add(rand_usr);
 			String title=User_Data.generateString(7);
 			String content=User_Data.generateString(20);
-			try {
-				Result res = Operations.create_post(rand_usr, title, content, usernames);
-				assertEquals(201, res.getResult());
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+			Result res = Operations.create_post(rand_usr, title, content, usernames);
+			assertEquals(201, res.getResult());
 			
 		}
-		try {
-			if(rand_usr !=null) assertEquals(400, Operations.create_post(rand_usr, "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG", "hey baby", usernames).getResult());
-			assertEquals(404, Operations.create_post("DOENOTEXISTS", "oxxxymiron", "rapper", usernames).getResult());
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		if(rand_usr !=null) assertEquals(400, Operations.create_post(rand_usr, "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG", "hey baby", usernames).getResult());
+		assertEquals(404, Operations.create_post("DOENOTEXISTS", "oxxxymiron", "rapper", usernames).getResult());
 	}
 	
 	@Test
@@ -402,11 +390,6 @@ class OperationsTest {
 			try {
 				Result res = Operations.view_blog(rand_usr, usernames);
 				assertEquals(200, res.getResult());
-				Pattern pat = Pattern.compile("(?<=\"author\":\")(.*?)(?=\")");//retrieves only the author of the post
-				Matcher match = pat.matcher(res.getReason());
-				while(match.find()) {
-					assertTrue(match.group().equals(rand_usr));
-				}
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();

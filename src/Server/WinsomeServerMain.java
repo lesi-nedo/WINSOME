@@ -15,7 +15,6 @@ import javax.rmi.ssl.SslRMIServerSocketFactory;
 
 import org.apache.http.ProtocolVersion;
 import org.apache.http.entity.BasicHttpEntity;
-import org.apache.http.impl.io.DefaultHttpRequestParser;
 import org.apache.http.impl.io.HttpTransportMetricsImpl;
 import org.apache.http.impl.io.SessionInputBufferImpl;
 import org.apache.http.message.BasicHttpResponse;
@@ -104,8 +103,6 @@ public class WinsomeServerMain {
 			HttpTransportMetricsImpl metrics= new HttpTransportMetricsImpl();
 			SessionInputBufferImpl ses_inp = new SessionInputBufferImpl(metrics, 10);
 			ses_inp.bind(new ByteArrayInputStream(("POST /echo HTTP/1.1\r\n" +  "Host: reqbin.com\r\nContent-Type: application/json; charset=UTF-16\r\nAccept: */*\r\n" + "Content-Length: "+ "{\"suka\":\"ddd\"}".getBytes().length + "\r\n\r\n" + "{\"suka\":\"ddd\"}").getBytes()));
-			DefaultHttpRequestParser req_par = new DefaultHttpRequestParser(ses_inp);
-			String str ="/ddf";
 			InputStream cont_stream= new ByteArrayInputStream("suka blat".getBytes());
 			BasicHttpResponse req = new BasicHttpResponse(new ProtocolVersion("HTTP", 1,1), 200, "SSS");
 			req.setHeader("Cookie", "PHPSESSID=298zf09hf012fh2; csrftoken=u32t4o3tb3gg43; _gat=1");
@@ -122,9 +119,9 @@ public class WinsomeServerMain {
 			User_Data.load_Usernames(usernames);
 			
 			sign_ser=new Sign_In(REGPORT, tags_in_mem, usernames);//initialization of the remote object
-//			sign_ser.register("oleksiy", "password", "python javascript");
-//			sign_ser.register("marco", "password", "python css");
-//			sign_ser.register("filippo", "password", "ocaml haske");
+			sign_ser.register("oleksiy", "password", "python javascript");
+			sign_ser.register("marco", "password", "python css");
+			sign_ser.register("filippo", "password", "ocaml haske");
 
 			LocateRegistry.createRegistry(REGPORT, csf, ssf);
 			reg=LocateRegistry.getRegistry(REGHOST, REGPORT, new SslRMIClientSocketFactory());
@@ -136,7 +133,7 @@ public class WinsomeServerMain {
 			serv.initMcastVars(MCASTPORT, GAINPERIOD, m_group, reward_author);
 			serv.start_serv(TIMEOUT);
 		} catch (JsonParseException e1) {
-			// TODO Auto-generated catch block
+			// TODO Auto-generated catch block		
 			e1.printStackTrace();
 		} catch (IllegalArgumentException e1) {
 			// TODO Auto-generated catch block
@@ -154,6 +151,9 @@ public class WinsomeServerMain {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (SecurityException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (UsernameAlreadyExistsException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
