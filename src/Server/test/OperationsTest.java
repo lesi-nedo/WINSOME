@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.rmi.RemoteException;
@@ -87,7 +88,7 @@ class OperationsTest {
 	@MethodSource("users_and_pas")
 	void test_login(String username, String password) {
 		try {
-			assertEquals(200, Operations.login(username, password, this.logged_users, usernames, users_to_upd, 0 , null).getResult());
+			assertEquals(200, Operations.login(username, password, this.logged_users, usernames, users_to_upd, 0 , InetAddress.getByName("8.8.8.8")).getResult());
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -348,10 +349,10 @@ class OperationsTest {
 					if(file.length == 0)
 						continue;
 					rand_id=file[rand.nextInt(file.length)].getName();
-					if(Files.exists(Paths.get(StaticNames.PATH_TO_PROFILES+rand_usr+"/Posts/"+rand_id)))
+					if(Files.exists(Paths.get(StaticNames.PATH_TO_PROFILES+rand_usr+"/Blog/"+rand_id)))
 						rewinded=1;
 					Result res = Operations.rewin_post(rand_usr, rand_id, usernames);
-					if(Files.exists(Paths.get(StaticNames.PATH_TO_PROFILES+rand_author+"/Posts/"+rand_id))) {
+					if(Files.exists(Paths.get(StaticNames.PATH_TO_PROFILES+rand_author+"/Blog/"+rand_id))) {
 						exists=1;
 						if(!Files.exists(Paths.get(StaticNames.PATH_TO_POSTS+rand_id))) {
 							exists=0;
@@ -360,7 +361,7 @@ class OperationsTest {
 					if(exists==1 && rewinded ==0) {
 						assertEquals(200, res.getResult());
 					}
-					if(res.getResult()== 400)  assertTrue(Files.exists(Paths.get(StaticNames.PATH_TO_PROFILES+rand_usr+"/Posts/"+rand_id)));
+					if(res.getResult()== 400)  assertTrue(Files.exists(Paths.get(StaticNames.PATH_TO_PROFILES+rand_usr+"/Blog/"+rand_id)));
 				}
 			} catch (NullPointerException e) {
 				System.out.println("Post was deleted.");

@@ -1,6 +1,4 @@
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.InetAddress;
 import java.rmi.AlreadyBoundException;
 import java.rmi.registry.LocateRegistry;
@@ -13,12 +11,6 @@ import java.util.concurrent.locks.ReadWriteLock;
 import javax.rmi.ssl.SslRMIClientSocketFactory;
 import javax.rmi.ssl.SslRMIServerSocketFactory;
 
-import org.apache.http.ProtocolVersion;
-import org.apache.http.entity.BasicHttpEntity;
-import org.apache.http.impl.io.HttpTransportMetricsImpl;
-import org.apache.http.impl.io.SessionInputBufferImpl;
-import org.apache.http.message.BasicHttpResponse;
-
 import com.fasterxml.jackson.core.JsonParseException;
 
 import notify_client.Followers;
@@ -29,7 +21,6 @@ import par_file.ParsingConfFile;
 import rec_fol.ReceiveUpdatesInterface;
 import sign_in.Sign_In;
 import sign_in.TooManyTagsException;
-import sign_in.UsernameAlreadyExistsException;
 import utils.StaticNames;
 import utils.User_Data;
 import winServ.ShutTheServ;
@@ -100,16 +91,7 @@ public class WinsomeServerMain {
 			Registry reg;	
 			FollowersInterface stub= null;
 			Followers serv_fol=null;
-			HttpTransportMetricsImpl metrics= new HttpTransportMetricsImpl();
-			SessionInputBufferImpl ses_inp = new SessionInputBufferImpl(metrics, 10);
-			ses_inp.bind(new ByteArrayInputStream(("POST /echo HTTP/1.1\r\n" +  "Host: reqbin.com\r\nContent-Type: application/json; charset=UTF-16\r\nAccept: */*\r\n" + "Content-Length: "+ "{\"suka\":\"ddd\"}".getBytes().length + "\r\n\r\n" + "{\"suka\":\"ddd\"}").getBytes()));
-			InputStream cont_stream= new ByteArrayInputStream("suka blat".getBytes());
-			BasicHttpResponse req = new BasicHttpResponse(new ProtocolVersion("HTTP", 1,1), 200, "SSS");
-			req.setHeader("Cookie", "PHPSESSID=298zf09hf012fh2; csrftoken=u32t4o3tb3gg43; _gat=1");
-			BasicHttpEntity entity = new BasicHttpEntity();
-			entity.setContent(cont_stream);
-			req.setEntity(entity);
-			
+		
 			
 			serv_fol=new Followers(users_to_upd);
 			//loads from the folder User_Data all tags and usernames

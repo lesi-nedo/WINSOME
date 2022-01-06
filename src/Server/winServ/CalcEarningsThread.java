@@ -157,9 +157,7 @@ public class CalcEarningsThread extends TimerTask {
 									entr.setValue(Double.valueOf(entr.getValue()+(others/num_cur)));
 								}
 							}
-						}
-						this.users_earnings.forEach((u, e) -> System.out.println(u+ "  " +e));
-						
+						}						
 						//updates the stat file
 						jsonGen = jsonFact.createGenerator(post_file, StaticNames.ENCODING);
 						jsonGen.useDefaultPrettyPrinter();
@@ -218,7 +216,6 @@ public class CalcEarningsThread extends TimerTask {
 			}
 		});
 		try {
-			int len_msg=StaticNames.MSG_NOTIFY_MULTICAS.length();
 			ByteBuffer buf = ByteBuffer.allocate(StaticNames.MSG_NOTIFY_MULTICAS.length());
 			buf.put(StaticNames.MSG_NOTIFY_MULTICAS.getBytes());
 			DatagramSocket sock = new DatagramSocket();

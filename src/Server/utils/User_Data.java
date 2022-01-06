@@ -301,7 +301,7 @@ public class User_Data {
 	//@param username: the user to notify
 	//@param users_to_upd: all users that added the stub and are notified
 	//@param usernames: all usernames in the system
-	public static void notify_client_fol(String username, ConcurrentMap<String, ReceiveUpdatesInterface> users_to_upd, ConcurrentMap<String, ReadWriteLock> usernames, String name_file) throws IOException {
+	public static void notify_client_fol(String username, ConcurrentMap<String, ReceiveUpdatesInterface> users_to_upd, ConcurrentMap<String, ReadWriteLock> usernames, String name_file, int foll_0_unfoll_1) throws IOException {
 		if(users_to_upd == null || usernames == null || username == null)
 			throw new IllegalArgumentException();
 		ReceiveUpdatesInterface cl = users_to_upd.get(username);
@@ -320,12 +320,15 @@ public class User_Data {
 			File curr_file=new File(StaticNames.PATH_TO_PROFILES+username+"/"+name_file);
 			JsonParser jsonPar = jsonFact.createParser(curr_file);
 			curr_tok=jsonPar.nextToken();
-			System.out.println(jsonPar.getText());
 			if(curr_tok!=null) {
 				while (jsonPar.nextToken()!=JsonToken.END_ARRAY) {
 					String tok = jsonPar.getValueAsString();
 					if(tok != null) {
+						if(foll_0_unfoll_1 == 0) {
 						cl.update(tok);
+						} else {
+							cl.update_unf(username);
+						}
 					}
 				}
 			}

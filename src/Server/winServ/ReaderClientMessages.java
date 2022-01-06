@@ -93,7 +93,7 @@ public class ReaderClientMessages implements Runnable {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-				System.out.println("Client closed the connection");
+//				System.out.println("Client closed the connection");
 				return;
 
 			}
@@ -104,7 +104,7 @@ public class ReaderClientMessages implements Runnable {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-				System.out.println("Client closed the connection");
+//				System.out.println("Client closed the connection");
 				return;
 			}
 			bfs.flip();
@@ -120,6 +120,7 @@ public class ReaderClientMessages implements Runnable {
 			boolean closed = false;
 			try {
 				req = req_par.parse();
+//				System.out.println(req.toString()); //prints the http request
 				conn_header=req.getFirstHeader("Connection");
 				if(conn_header != null && conn_header.getValue().toLowerCase().equals("close"))
 					closed = true;
@@ -690,7 +691,6 @@ public class ReaderClientMessages implements Runnable {
 			try {
 				ereq = get_with_entity(req);
 				json = new String(ereq.getEntity().getContent().readAllBytes());
-				System.out.println(json);
 				jsonPar = jsonFact.createParser(json);
 				while(!jsonPar.isClosed()) {
 					JsonToken tok = jsonPar.nextToken();

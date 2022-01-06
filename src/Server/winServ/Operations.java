@@ -95,8 +95,8 @@ public class Operations {
 								logged_users.putIfAbsent(username, getSessionId());
 								lock.unlock();
 								is_locked=0;
-								User_Data.notify_client_fol(username, users_to_upd, usernames, StaticNames.NAME_FILE_UNFOL_UPD);
-								User_Data.notify_client_fol(username, users_to_upd, usernames, StaticNames.NAME_FILE_FOL_UPD);
+								User_Data.notify_client_fol(username, users_to_upd, usernames, StaticNames.NAME_FILE_UNFOL_UPD, 1);
+								User_Data.notify_client_fol(username, users_to_upd, usernames, StaticNames.NAME_FILE_FOL_UPD, 0);
 								lock.lock();
 								is_locked=1;
 								return new Result(200, "{\"port\":" +mcas_port +", \"address\":\""+mcast_addr.getHostAddress() + "\"}");
@@ -454,11 +454,15 @@ public class Operations {
 					if(path.isDirectory() && path.exists()) {
 						String temp_res="";
 						int times_f=0;
+						File post_bl = null;
 	
 						wrapper.res=wrapper.res.concat(", \""+path.getName()+"\":{");
 						JsonFactory jsonFact=new JsonFactory();
 						try {
-							JsonParser jsonPar=jsonFact.createParser(new File(StaticNames.PATH_TO_PROFILES+username+"/Posts/"+path.getName()+"/"+StaticNames.NAME_FILE_POST));
+							post_bl=new File(StaticNames.PATH_TO_PROFILES+username+"/Blog/"+path.getName()+"/"+StaticNames.NAME_FILE_POST);
+							if(!post_bl.exists())
+								return;
+							JsonParser jsonPar=jsonFact.createParser(post_bl);
 							jsonPar.nextToken();
 							while(jsonPar.nextToken() != JsonToken.END_OBJECT) {
 								String curr=jsonPar.getText();
@@ -1062,7 +1066,6 @@ public class Operations {
 				.build();
 		try {
 			HttpResponse<String> response = client.send(request, BodyHandlers.ofString());
-			System.out.println(response.statusCode());
 			value=Double.valueOf(response.body());
 		} catch (IOException | InterruptedException e) {
 			// TODO Auto-generated catch block

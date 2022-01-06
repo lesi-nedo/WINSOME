@@ -28,7 +28,6 @@ import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
 
 import rec_fol.ReceiveUpdatesInterface;
-import sign_in.TooManyTagsException;
 
 public class WinsomeServer {
 	/*
@@ -104,7 +103,7 @@ public class WinsomeServer {
 		this.timer= new Timer();
 		this.wake_called=new AtomicBoolean(false);
 	}
-	public void start_serv(int timeout) throws TooManyTagsException {
+	public void start_serv(int timeout) {
 		try(ServerSocketChannel s_cha=ServerSocketChannel.open()){
 			s_cha.socket().bind(new InetSocketAddress(InetAddress.getByName(this.IP_serv), this.port));
 //			s_cha.socket().setSoTimeout(timeout);
@@ -122,10 +121,12 @@ public class WinsomeServer {
 				while(sel.select()==0) {
 					this.wake_called.set(false);
 					reg_from_queue();
-					if(sel.selectNow() > 0) {
+					if(sel.selectNow() > 0 || !this.can_run) {
 						break;
 					}
 				}
+				if(!this.can_run)
+					break;
 				this.wake_called.set(false);
 				Set<SelectionKey> sel_key=sel.selectedKeys();
 				Iterator<SelectionKey> iter=sel_key.iterator();
@@ -142,7 +143,7 @@ public class WinsomeServer {
 							c_cha.configureBlocking(false);
 							c_cha.register(sel, SelectionKey.OP_READ, null);
 							this.num_active_con++;
-							System.out.println(this.num_active_con);
+//							System.out.println(this.num_active_con);
 						}
 						else if(key.isValid() && key.isReadable()) {
 							ReaderClientMessages task = new ReaderClientMessages(sel, key, this.BUFF_LIMIT, this.usernames, this.tags_in_mem, logged_users, this.users_to_upd, queue, this.wake_called);
@@ -173,7 +174,7 @@ public class WinsomeServer {
 			e.printStackTrace();
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			exec_pool.shutdownNow();
 		}
 	}
 	
@@ -186,6 +187,7 @@ public class WinsomeServer {
 	
 	public void end_me() {
 		this.can_run=false;
+		this.sel.wakeup();
 	}
 	
 	public int getMcasPort() {
