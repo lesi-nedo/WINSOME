@@ -1,8 +1,8 @@
 package serv_inter;
 
 public class UsernameWrp {
-	private String username;
-	private Thread thread;
+	private String username;//the usrname of the current profile logged
+	private Thread thread;//the thread that is listening for the datagram
 	public UsernameWrp() {
 		super();
 	}

@@ -8,6 +8,9 @@ import java.net.SocketTimeoutException;
 
 
 public class ReaderNotifCalc implements Runnable {
+	/*
+	 * Overview: thread that joins the multicast group
+	 */
 	public static int DGRAM_BUFF_SIZE=8192;
 	private int port;
 	private InetAddress addr;
@@ -51,7 +54,7 @@ public class ReaderNotifCalc implements Runnable {
 			mcast.close();
 		}
 	}
-	
+	//@Effects: leaves the multicast group
 	public void leave() {
 		try {
 			this.end=true;

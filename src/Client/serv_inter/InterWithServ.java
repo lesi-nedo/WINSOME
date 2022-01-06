@@ -55,14 +55,15 @@ import utils.StaticNames_Client;
 
 public class InterWithServ {
 	static final SimpleDateFormat FORMATTER =new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
-	private static final String FWOR_LIST="list";
-	private static final String FWOR_SHOW="show";
-	private static final String FWOR_WALLET="wallet";
+	private static final String FWOR_LIST="list";//commands that start with list
+	private static final String FWOR_SHOW="show";//commands that start with show
+	private static final String FWOR_WALLET="wallet";//commands that start with wallet
+	//acceptable methods
 	private static final String GET="GET";
 	private static final String POST="POST";
 	private static final String DELETE="DELETE";
 	private static final String PUT="PUT";
-	
+	//acceptable uris
 	private static final String URI_LIST_USERS="/list_users";
 	private static final String URI_LIST_FOLLOWING="/list_following";
 	private static final String URI_VIEW_BLOG="/view_blog";
@@ -79,7 +80,7 @@ public class InterWithServ {
 	private static final String URI_REWIN_POST="/rewin_post";
 	private static final String URI_RATE_POST="/rate_post";
 	private static final String URI_ADD_COMMENT="/add_comment";
-	private static final int BUFF_SIZE=8*1024*1024;
+	private static final int BUFF_SIZE=8*1024*1024;//the size of the receiving buffer
 	
 	//Each functionality is stored in a lambda fuction
 	private static final DFunction<InterWithServ, String> list_users = (Obj, arg) -> Obj.list_users(arg);
@@ -90,13 +91,11 @@ public class InterWithServ {
 	private static final DFunction<InterWithServ, String> get_wallet_in_bitcoin = (Obj, arg) -> Obj.get_wallet_in_bitcoin(arg);
 	private static final DFunction<InterWithServ, String> show_post = (Obj, arg) -> Obj.show_post(arg);
 	private static final DFunction<InterWithServ, String> list_followers = (Obj, arg) -> Obj.list_followers(arg);
-
-
+	private static final DFunction<InterWithServ, String> help = (Obj, arg) -> Obj.help(arg);
 	
 	private static final DFunction<InterWithServ, String> login = (Obj, arg) -> Obj.login(arg);
 	private static final DFunction<InterWithServ, String> create_post = (Obj, arg) -> Obj.create_post(arg);
-		
-		
+				
 	private static final DFunction<InterWithServ, String> logout = (Obj, arg) -> Obj.logout(arg);
 	private static final DFunction<InterWithServ, String> delete_post = (Obj, arg) -> Obj.delete_post(arg);
 		
@@ -112,7 +111,8 @@ public class InterWithServ {
 	private static final Map<String, DFunction<InterWithServ, String>> SHOW_OP = Map.of("feed", show_feed, "post", show_post);
 	private static final Map<String, DFunction<InterWithServ, String>> WALLET_OP = Map.of("btc", get_wallet_in_bitcoin);
 	private static final Map<String, DFunction<InterWithServ, String>> ONEWORD_OP = Map.ofEntries(entry("blog", view_blog), entry("wallet", get_wallet), entry("login", login), entry("post", create_post), 
-			entry("logout", logout), entry("delete", delete_post), entry("follow", follow_user), entry("unfollow", unfollow_user), entry("rewin", rewin_post), entry("rate", rate_post), entry("comment", add_comment), entry("register", register));
+			entry("logout", logout), entry("delete", delete_post), entry("follow", follow_user), entry("unfollow", unfollow_user), entry("rewin", rewin_post), entry("rate", rate_post), entry("comment", add_comment), 
+			entry("register", register), entry("help", help));
 		
 	private static final Map<String, Map<String, DFunction<InterWithServ, String>>> TWOWORD_OP= Map.of("list", LIST_OP, "show", SHOW_OP, "wallet", WALLET_OP);
 	
@@ -133,6 +133,15 @@ public class InterWithServ {
 	private int timeout;
 	private ReaderNotifCalc mcast_not;
 	
+	//@Effects: initializes of the object
+	//@param sign: the interface of the sign up service
+	//@param cl_skt: that allows communication with the server
+	//@param IP: ip associated to the host
+	//@param serv_service: the interface for registering for the callbacks about new follwers/unfollowers
+	//@param stub: client's stub
+	//@param username_wrp: wrapper for the username and thread that is waiting for the datagrams.
+	//@param all_followers: the empty set where all followers will be saved
+	//@param timeout: the timeout for the socket cl_Skt
 	public InterWithServ (Sign_In_Interface sign, SocketChannel cl_skt, String IP, FollowersInterface serv_service, ReceiveUpdatesInterface stub, 
 			UsernameWrp username_wrp, Set<String> all_followers, int timeout) {
 		this.sign = sign;
@@ -148,13 +157,18 @@ public class InterWithServ {
 		this.all_followers=all_followers;
 		this.timeout=timeout;
 	}
-		
+	
+	//@Effects: method that sends the request to the server
+	//@Throw IncorrectOperationException: if a command is not in two maps (ONEWORD_OP, TWOWORD_OP)
+	//@param instance: the instance of this
+	//@param req: the command associated with a functionality
 	public static void send_req(InterWithServ instance, String req) throws IncorrectOperationException {
 		int ind_sec = req.indexOf(" ");
 		String args = null;
 		String meth = null;
 		String sec_wor=null;
 		if(ind_sec > 0) {
+			//splits the string in command and arguments
 			meth = req.substring(0, ind_sec);
 			args  = req.substring(meth.length()+1);
 		} else {
@@ -163,6 +177,7 @@ public class InterWithServ {
 		try {
 			if(meth.startsWith(FWOR_LIST) || meth.startsWith(FWOR_SHOW) || 
 					(meth.startsWith(FWOR_WALLET) && args != null)) {
+				//if a two words command the gets it the second part
 				ind_sec = args.indexOf(' ');
 				if(ind_sec == -1)
 					ind_sec = args.length();
@@ -176,15 +191,21 @@ public class InterWithServ {
 			throw new IncorrectOperationException("Such a opertaion, " + meth +", is not implemented.");
 		}
 	}
-	
+	//@Effects: registers the user 
+	//@param args: arguments <username> <password> <tags>
 	private void register(String args) {
 		try {
+			Pattern p = Pattern.compile("(?<=\")(\\X.+?)(?=\")");
+			Matcher m = null;
 			StringTokenizer toks = new StringTokenizer(args, " ");
 			String username = toks.nextToken();
 			String password = toks.nextToken();
-			String tags = toks.nextToken();
-			tags = tags.concat(args.substring(username.length()+password.length()+tags.length()+2));
+			m = p.matcher(args.substring(username.length()+password.length()+2));
+			m.find();
+			//extracts the tags from the string with a regex
+			String tags = m.group(1);
 			sign.register(username, password, tags);
+			//creates a folder in Client that will stored all followed users
 			File path = new File(StaticNames_Client.PATH_TO_CLIENT+username);
 			File file_foll = new File(StaticNames_Client.PATH_TO_CLIENT+username+StaticNames_Client.NAME_FILE_FOLL);
 			path.mkdir();
@@ -194,7 +215,7 @@ public class InterWithServ {
 			System.err.println("Missing an argument");
 		} catch (IllegalArgumentException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			System.err.println(e.getMessage());
 		} catch (RemoteException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -207,6 +228,8 @@ public class InterWithServ {
 		}
 	}
 	
+	//@Effects:prints all the users that are followers of the profile logged
+	//@param args: in this case should be empty
 	private void list_followers(String args) {
 		System.out.println("Followers:");
 		for(String us: this.all_followers) {
@@ -214,7 +237,8 @@ public class InterWithServ {
 		}
 		System.out.flush();
 	}
-	
+	//@Effects: ask the server to list all users that have one tag in common with a profile that is logged in 
+	//@param args: should be empty
 	private void list_users(String args) {
 		HttpRequest req = create_req(GET, URI_LIST_USERS);
 		writer_skt(req, null, 0);
@@ -223,7 +247,7 @@ public class InterWithServ {
 			try {
 				JsonFactory jsonFact = new JsonFactory();
 				JsonParser par = jsonFact.createParser(res);
-				String tags =null;
+				String tags ="";
 				System.out.println(String.format("%1$-20s|%2$50s", "Users", "Tags"));
 				Stream.generate(() -> "-").limit(90).forEach(System.out::print);
 				System.out.println("");
@@ -235,7 +259,7 @@ public class InterWithServ {
 						String tag = par.getText();
 						tags = tags.concat(", " + tag);
 					}
-					tags.replaceFirst(", ", "");
+					tags = tags.replaceFirst(", ", "");
 					System.out.println(String.format("%1$-20s|%2$50s", user, tags));
 				}
 			} catch(Exception e) {
@@ -245,7 +269,8 @@ public class InterWithServ {
 		return;
 		
 	}
-	
+	//@Effects: ask the server to list all users that are followed
+	//@param args: should be empty
 	private void list_following(String args) {
 		HttpRequest req = create_req(GET, URI_LIST_FOLLOWING);
 		writer_skt(req, null, 0);
@@ -266,7 +291,8 @@ public class InterWithServ {
 			e.printStackTrace();
 		}
 	}
-	
+	//@Effects: ask the server to list all published rewinded posts
+	//@param args: should be empty
 	private void view_blog(String args) {
 		HttpRequest req = create_req(GET, URI_VIEW_BLOG);
 		writer_skt(req, null, 0);
@@ -300,6 +326,8 @@ public class InterWithServ {
 		}
 	}
 	
+	//@Effects: ask the server to list all published-rewinded-follower's posts
+	//@param args: should be empty
 	private void show_feed(String args) {
 		HttpRequest req = create_req(GET, URI_SHOW_FEED);
 		writer_skt(req, null, 0);
@@ -332,7 +360,8 @@ public class InterWithServ {
 			e.printStackTrace();
 		}
 	}
-	
+	//@Effects: ask the server the value of the wallet
+	//@param args: should be empty
 	private void get_wallet(String args) {
 		HttpRequest req = create_req(GET, URI_WALLET);
 		writer_skt(req, null, 0);
@@ -360,7 +389,8 @@ public class InterWithServ {
 			e.printStackTrace();
 		}
 	}
-	
+	//@Effects: ask the server the value of the wallet in bitcoins
+	//@param args: should be empty
 	private void get_wallet_in_bitcoin(String args) {
 		HttpRequest req = create_req(GET, URI_WALLET_IN_BTC);
 		writer_skt(req, null, 0);
@@ -393,7 +423,8 @@ public class InterWithServ {
 			e.printStackTrace();
 		}
 	}
-	
+	//@Effects: asks the server the information about the post
+	//@param args: the identifier of the post to be shown
 	private void show_post(String args) {
 		args = args.strip();
 		HttpRequest req = create_req(GET, URI_SHOW_POST+"/"+args);
@@ -449,7 +480,8 @@ public class InterWithServ {
 			e.printStackTrace();
 		}
 	}
-	
+	//@Effects: asks the server to log in
+	//@ param: should contain the username password
 	private void login(String args) {
 		StringTokenizer toks = new StringTokenizer(args, " ");
 		String res = null;
@@ -474,6 +506,16 @@ public class InterWithServ {
 				jsonFact = new JsonFactory();
 				file_foll = new File(StaticNames_Client.PATH_TO_CLIENT+username+StaticNames_Client.NAME_FILE_FOLL);
 				jsonPar = null;
+				
+				jsonPar = jsonFact.createParser(file_foll);
+				JsonToken tok = jsonPar.nextToken();
+				if(tok != null) {
+					while(jsonPar.nextToken() != JsonToken.END_ARRAY) {
+						String foll = jsonPar.getText();
+						all_followers.add(foll);
+					}
+				}
+				jsonPar.close();
 				ent = new BasicHttpEntity();
 				json = "{\"username\":\"" + username + "\", \"password\":\"" + password+ "\"}";
 				stream = new ByteArrayInputStream(json.getBytes());
@@ -486,15 +528,6 @@ public class InterWithServ {
 				 if(res != null) {
 					 this.username_wrp.set_username(username);
 					 this.logged=true;
-					 jsonPar = jsonFact.createParser(file_foll);
-						JsonToken tok = jsonPar.nextToken();
-						if(tok != null) {
-							while(jsonPar.nextToken() != JsonToken.END_ARRAY) {
-								String foll = jsonPar.getText();
-								all_followers.add(foll);
-							}
-						}
-						jsonPar.close();
 					 System.out.println(username + " logged in");
 					 m = p.matcher(res);
 					 m.find();
@@ -509,7 +542,7 @@ public class InterWithServ {
 				System.err.println("Usage: login <username> <password>");
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
-				e.printStackTrace();
+				System.err.println("Please first: register <username> <password>");
 			} finally {
 				if(res == null && username != null)
 					try {
@@ -525,7 +558,8 @@ public class InterWithServ {
 			System.err.println("There is a connected user, firstly log out.");
 		}
 	}
-	
+	//@Effects: asks the server to log out
+	//@param args: should be empty
 	private void logout(String args) {
 		HttpRequest req = create_req(DELETE, URI_LOGOUT);
 		JsonFactory jsonFact = new JsonFactory();
@@ -557,7 +591,8 @@ public class InterWithServ {
 			System.out.println(this.username_wrp.get_username() + " logged out");
 	 }
 	}
-	
+	//@Effects: asks the server to follow the user x
+	//@param args: the name of the user to be follow
 	private void follow_user(String args) {
 		args = args.strip();
 		HttpRequest req = create_req(PUT, URI_FOLLOW_USER+"/"+args);
@@ -571,6 +606,8 @@ public class InterWithServ {
 		}
 	}
 	
+	//@Effects: asks the server to unfollow the user x
+	//@param args: the name of the user to be unfollowed
 	private void unfollow_user(String args) {
 		args = args.strip();
 		HttpRequest req = create_req(PUT, URI_UNFOLLOW_USER+"/"+args);
@@ -596,7 +633,8 @@ public class InterWithServ {
 			System.out.println(m.group(2)+".");
 		}
 	}
-	
+	//@effects: asks the server to rewind the post
+	//@param args: the id of the post to be rewinded
 	private void rate_post(String args) {
 		StringTokenizer toks = new StringTokenizer(args, " ");
 		try {
@@ -616,6 +654,8 @@ public class InterWithServ {
 		}
 	}
 	
+	//@Effects: asks the server to add a comment to a post
+	//@param args: the id of the post and the content of the comment
 	private void add_comment(String args) {
 		Pattern p = Pattern.compile("(?=\\w)(\\w+\\s*?\\w.*?)(?=\")");
 		Matcher m = p.matcher(args);
@@ -649,6 +689,8 @@ public class InterWithServ {
 		}
 	}
 	
+	//@Effects: asks the server to create a post
+	//@param args: title and the content of the post
 	private void create_post(String args) {
 		Pattern p = Pattern.compile("(?<=\")(\\w+\\s*?\\w.*?)(?=\")");
 		Matcher m = p.matcher(args);
@@ -658,7 +700,6 @@ public class InterWithServ {
 			String title = m.group(1);
 			m.find();
 			String content = m.group(1);
-			System.out.println(content);
 			BasicHttpEntity ent = new BasicHttpEntity();
 			String json = "{\"title\":\"" + title + "\", \"content\":\"" + content+ "\"}";
 			ByteArrayInputStream stream = new ByteArrayInputStream(json.getBytes());
@@ -682,6 +723,8 @@ public class InterWithServ {
 		}
 	}
 	
+	//@Effects: asks the server to delete a post
+	//@param args: should empty
 	private void delete_post(String arg) {
 		arg = arg.strip();
 		HttpRequest req= create_req(DELETE, URI_DELETE_POST +"/"+arg);
@@ -696,7 +739,10 @@ public class InterWithServ {
 	}
 	
 	
-	
+	//@Effects: writes the request to the socket
+	//@param req: the request to be written
+	//@param ent: the entity(content) of request
+	//@ length_cont_ent: the length of content associated with the request
 	private void writer_skt (HttpRequest req, HttpEntity ent, int length_cont_ent) {
 		try {
 			this.ses_out.bind(cl_skt.socket().getOutputStream());
@@ -725,7 +771,7 @@ public class InterWithServ {
 			e.printStackTrace();
 		}
 	}
-	
+	//Effects: reads from the socket the response
 	private String reader_skt() {
 		Header[] cookie = null;
 		Pattern r = Pattern.compile("(.*=.*)(?=;)");
@@ -783,6 +829,12 @@ public class InterWithServ {
 		return new String(bytes);
 	}
 	
+	private void help(String arg) {
+		System.out.println(String.format("%1$40s%2$40s%3$40s%4$20s%5$20s%6$20s%7$20s%8$20s%9$20s%10$20s%11$20s%12$20s%13$20s%14$20s%15$20s%16$20s%17$20s%18$20s", "register <username> <password> <\"tags\">\n",
+				 "login <username> <password>\n", "logout\n", "list users\n", "list followers\n", "list following\n", "follow <username>\n", "unfollow <username>\n", "blog\n", "post <\"title\"> <\"content\">\n", "show feed\n", "show post <idPost>\n", 
+				 "delete <idPost>\n", "rewin <idPost> <vote>\n", "comment <idPost> <\"comment\">\n", "wallet\n", "wallet btc", "help", "where: <tags> are list of words enclosed in \"\n     <title> title enclosed in \" with a length <= 20\n     <content> content enclosed in \" with a maxium length of 500 characters"));
+	}
+	//@effects: creates an http request with the same headers
 	private HttpRequest create_req(String method, String uri) {
 		HttpRequest resp = new BasicHttpRequest(method, uri, new ProtocolVersion("HTTP", 1, 1));
 		resp.addHeader("Date", FORMATTER.format(Calendar.getInstance().getTime()));

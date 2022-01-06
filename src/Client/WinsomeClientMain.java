@@ -29,45 +29,52 @@ import utils.StaticMethods;
 import utils.StaticNames_Client;
 
 public class WinsomeClientMain {
+	/*
+	 * Overview: implementation of the client 
+	 */
+	
 	private static final String[] CONFS= {"SERVER", "TCPPORT", "REGHOST", "REGPORT", "TIMEOUT", "NAME_SIGN_REG", "NAME_CALLBACK_UPFOL"}; //all configurations accepted
-	private static String DEFAULT_SERV="192.168.1.24";
-	private static int DEFAULT_TCPPORT=6666;
-	private static String DEFAULT_REGHOST="localhost";
-	private static int DEFAULT_REGPORT=7777;
-	private static int DEFAULT_TIMEOUT=1000;
-	private static int FAILURE_STAT_CODE=0;
-	private static String DEFAULT_NAME_SIGN_REG="SIGN_IN";
-	private static String DEFAULT_NAME_CALLBACK_UPFOL="UPDATED_ME";
-	private static String EXIT_CMD="exit";
+	private static final  String DEFAULT_SERV="192.168.1.24";
+	private static final int DEFAULT_TCPPORT=6666;
+	private static final String DEFAULT_REGHOST="localhost";
+	private static final int DEFAULT_REGPORT=7777;
+	private static final int DEFAULT_TIMEOUT=1000;
+	private static final int FAILURE_STAT_CODE=0;
+	private static final String DEFAULT_NAME_SIGN_REG="SIGN_IN";
+	private static final String DEFAULT_NAME_CALLBACK_UPFOL="UPDATED_ME";
+	private static final String EXIT_CMD="exit";
 	
 	public static void main(String[] arg) {
-		String conf = null;
-		int REGPORT =0;
-		String REGHOST=null;
-		String SERVER=null;
-		String NAME_SIGN_REG=null;
-		String NAME_CALLBACK_UPFOL=null;
-		int TCPPORT=0;
-		int TIMEOUT = 0;
-		Set<String> all_followers=new HashSet<String>();
-		Sign_In_Interface sign_r;
+		String conf = null; //holds the configuration value
+		int REGPORT =0;//porto associated to the registry
+		String REGHOST=null; //address of the registry
+		String SERVER=null; //address of the server
+		String NAME_SIGN_REG=null;//the name in the registry of the sign up service 
+		String NAME_CALLBACK_UPFOL=null;//the name of the updates about new followers
+		int TCPPORT=0;//port associated to the server
+		int TIMEOUT = 0;//timeout for the socket
+		Set<String> all_followers=new HashSet<String>(); //in this variable are stored all followers than when a user logs out it gets transferred to a json file
+		Sign_In_Interface sign_r; //the interface of the service
 		Registry registry = null;
 		FollowersInterface upd_foll_r;
 		BufferedReader cons_reader = null;
-		AtomicBoolean exit = new AtomicBoolean(false);
-		String msg = null;
-		String IP = null;
+		AtomicBoolean exit = new AtomicBoolean(false);//if true than the server will terminated
+		String msg = null;//holda the input from the human
+		String IP = null;//holds the ip associated to the machine, it is used for the header HOST
 		ReceiveUpdatesInterface stub;
 		ReceiveUpdatesInterface callObj;
 		InterWithServ inter;
-		UsernameWrp username_wrp=new UsernameWrp();
+		UsernameWrp username_wrp=new UsernameWrp();//this variable holds the current log user with the thread that has joined the group for the multicast.
 		
 		try(final DatagramSocket sock = new DatagramSocket()) {
+			//gets the host ip
 			sock.connect(InetAddress.getByName("8.8.8.8"), 10002);
 			IP = sock.getLocalAddress().getHostAddress();
+			//parse the configuration file
 			ParsingConfFile confs=new ParsingConfFile(StaticNames_Client.NAME_CONF_FILE, CONFS);
+			//sets the parameters for the sslSocket
 			StaticMethods.setSettings_client(StaticNames_Client.PATH_TO_SSL);
-			
+			//Saves all the configuration in variables from the conf_file.txt
 			conf =confs.getConf("REGPORT");
 			REGPORT= conf == null ? DEFAULT_REGPORT: Integer.valueOf(conf);
 			conf=confs.getConf("REGHOST");
@@ -109,6 +116,8 @@ public class WinsomeClientMain {
 				} catch (IncorrectOperationException e) {
 					// TODO Auto-generated catch block
 					System.err.println(e.getMessage());
+				} catch (IllegalStateException e) {
+					System.err.println(e.getMessage() + " --> probably arguments are incorrect");
 				}
 			}
 			
