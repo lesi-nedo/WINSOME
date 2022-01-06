@@ -318,10 +318,9 @@ public class User_Data {
 		try {
 			lock.lock();
 			File curr_file=new File(StaticNames.PATH_TO_PROFILES+username+"/"+name_file);
-			jsonGen = jsonFact.createGenerator(curr_file, StaticNames.ENCODING);
-			jsonGen.useDefaultPrettyPrinter();
 			JsonParser jsonPar = jsonFact.createParser(curr_file);
 			curr_tok=jsonPar.nextToken();
+			System.out.println(jsonPar.getText());
 			if(curr_tok!=null) {
 				while (jsonPar.nextToken()!=JsonToken.END_ARRAY) {
 					String tok = jsonPar.getValueAsString();
@@ -330,6 +329,8 @@ public class User_Data {
 					}
 				}
 			}
+			jsonGen = jsonFact.createGenerator(curr_file, StaticNames.ENCODING);
+			jsonGen.useDefaultPrettyPrinter();
 			jsonGen.writeStartArray();
 			jsonGen.writeEndArray();
 			jsonGen.flush();

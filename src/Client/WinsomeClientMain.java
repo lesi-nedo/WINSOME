@@ -1,5 +1,4 @@
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.DatagramSocket;
@@ -14,9 +13,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
+import javax.rmi.ssl.SslRMIClientSocketFactory;
 
 import notify_client.FollowersInterface;
 import par_file.EmptyFileException;
@@ -26,6 +23,7 @@ import rec_fol.ReceiveUpdates;
 import rec_fol.ReceiveUpdatesInterface;
 import serv_inter.IncorrectOperationException;
 import serv_inter.InterWithServ;
+import serv_inter.UsernameWrp;
 import sign_in.Sign_In_Interface;
 import utils.StaticMethods;
 import utils.StaticNames_Client;
@@ -37,7 +35,6 @@ public class WinsomeClientMain {
 	private static String DEFAULT_REGHOST="localhost";
 	private static int DEFAULT_REGPORT=7777;
 	private static int DEFAULT_TIMEOUT=1000;
-	private static String CONF_FILE_NAME="client_conf.txt";
 	private static int FAILURE_STAT_CODE=0;
 	private static String DEFAULT_NAME_SIGN_REG="SIGN_IN";
 	private static String DEFAULT_NAME_CALLBACK_UPFOL="UPDATED_ME";
@@ -52,10 +49,7 @@ public class WinsomeClientMain {
 		String NAME_CALLBACK_UPFOL=null;
 		int TCPPORT=0;
 		int TIMEOUT = 0;
-		File file_foll=new File(StaticNames_Client.PATH_TO_FILE_FOLL+StaticNames_Client.NAME_FILE_FOLL+System.currentTimeMillis()+".json");
 		Set<String> all_followers=new HashSet<String>();
-		JsonFactory jsonFact = new JsonFactory();
-		JsonParser jsonPar = null;
 		Sign_In_Interface sign_r;
 		Registry registry = null;
 		FollowersInterface upd_foll_r;
@@ -66,12 +60,12 @@ public class WinsomeClientMain {
 		ReceiveUpdatesInterface stub;
 		ReceiveUpdatesInterface callObj;
 		InterWithServ inter;
-
+		UsernameWrp username_wrp=new UsernameWrp();
 		
 		try(final DatagramSocket sock = new DatagramSocket()) {
 			sock.connect(InetAddress.getByName("8.8.8.8"), 10002);
 			IP = sock.getLocalAddress().getHostAddress();
-			ParsingConfFile confs=new ParsingConfFile(CONF_FILE_NAME, CONFS);
+			ParsingConfFile confs=new ParsingConfFile(StaticNames_Client.NAME_CONF_FILE, CONFS);
 			StaticMethods.setSettings_client(StaticNames_Client.PATH_TO_SSL);
 			
 			conf =confs.getConf("REGPORT");
@@ -91,50 +85,51 @@ public class WinsomeClientMain {
 		} catch (IOException | EmptyFileException | IllegalFileFormatException e) {
 			// TODO Auto-generated catch block
 			System.out.println("Please fix the configuration file than rerun me.");
+			e.printStackTrace();
 			System.exit(FAILURE_STAT_CODE);
 		}
-		if(!file_foll.exists()) {
-			System.out.println("Could not find the json file with all the followers: " + StaticNames_Client.NAME_FILE_FOLL);
-			System.exit(FAILURE_STAT_CODE);
-		}
-		try( SocketChannel cl_sk = SocketChannel.open(new InetSocketAddress(SERVER, TCPPORT)); ) {
-			jsonPar = jsonFact.createParser(file_foll);
-			JsonToken tok = jsonPar.nextToken();
-			if(tok != null) {
-				while(jsonPar.nextToken() != JsonToken.END_ARRAY) {
-					String foll = jsonPar.getText();
-					all_followers.add(foll);
-				}
-			}
-			jsonPar.close();
-			
-			registry = LocateRegistry.getRegistry(REGHOST, REGPORT);
+		try( SocketChannel cl_sk = SocketChannel.open(new InetSocketAddress(InetAddress.getByName(SERVER), TCPPORT)); ) {
+//			cl_sk.socket().setSoTimeout(TIMEOUT);
+			registry = LocateRegistry.getRegistry(REGHOST, REGPORT, new SslRMIClientSocketFactory());
 			sign_r = (Sign_In_Interface) registry.lookup(NAME_SIGN_REG);
 			upd_foll_r = (FollowersInterface) registry.lookup(NAME_CALLBACK_UPFOL);
 			callObj = new ReceiveUpdates(all_followers);
 			stub = (ReceiveUpdatesInterface) UnicastRemoteObject.exportObject(callObj, 0);
-			inter = new InterWithServ(sign_r, cl_sk, IP, exit, upd_foll_r, stub);
+			inter = new InterWithServ(sign_r, cl_sk, IP, upd_foll_r, stub, username_wrp, all_followers, TIMEOUT);
 			cons_reader=new BufferedReader(new InputStreamReader(System.in));
 			while(!exit.get()) {
+				System.out.println("Ready: ");
 				msg = cons_reader.readLine().trim();
 				if(msg.equals(EXIT_CMD)){
 					exit.set(true);
 					continue;
 				}
-				InterWithServ.send_req(inter, msg);
+				try {
+					InterWithServ.send_req(inter, msg);
+				} catch (IncorrectOperationException e) {
+					// TODO Auto-generated catch block
+					System.err.println(e.getMessage());
+				}
 			}
+			
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (NotBoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-		} catch (IncorrectOperationException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+		}  finally {
+			if(username_wrp.get_thread()!=null) {
+				username_wrp.get_thread().interrupt();
+				try {
+					username_wrp.get_thread().join();
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
 		}
-		
-			
+		return;
 		
 	}
 }

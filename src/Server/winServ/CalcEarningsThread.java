@@ -219,8 +219,7 @@ public class CalcEarningsThread extends TimerTask {
 		});
 		try {
 			int len_msg=StaticNames.MSG_NOTIFY_MULTICAS.length();
-			ByteBuffer buf = ByteBuffer.allocate(Integer.BYTES+len_msg);
-			buf.putInt(len_msg);
+			ByteBuffer buf = ByteBuffer.allocate(StaticNames.MSG_NOTIFY_MULTICAS.length());
 			buf.put(StaticNames.MSG_NOTIFY_MULTICAS.getBytes());
 			DatagramSocket sock = new DatagramSocket();
 			DatagramPacket dat = new DatagramPacket(buf.array(), buf.position(), this.addr, this.port);

@@ -120,7 +120,6 @@ public class ReaderClientMessages implements Runnable {
 			boolean closed = false;
 			try {
 				req = req_par.parse();
-				System.out.println(new String(bfs.array()));
 				conn_header=req.getFirstHeader("Connection");
 				if(conn_header != null && conn_header.getValue().toLowerCase().equals("close"))
 					closed = true;
@@ -130,7 +129,6 @@ public class ReaderClientMessages implements Runnable {
 				StringTokenizer t = new StringTokenizer(uri, "/");
 				String op = t.nextToken();
 				resp = WinsomeServer.METHODS_OP.get(method).get(op).apply(this, req);
-				System.out.println("SSS");
 				HttpEntity entity = resp.getEntity();
 				entity_len = entity != null ?entity.toString().getBytes().length: 0;
 				resp_wrp=new HttpWrapper(resp, resp.toString().getBytes().length + entity_len, closed);
@@ -141,7 +139,6 @@ public class ReaderClientMessages implements Runnable {
 			} finally {
 				try {
 					in_str.close();
-					System.out.println(resp_wrp);
 					resp_wrp.set_upd_op_type(SelectionKey.OP_WRITE);
 					resp_wrp.set_socket(c_sk);
 					this.queue.put(resp_wrp);

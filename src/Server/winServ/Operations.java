@@ -95,8 +95,8 @@ public class Operations {
 								logged_users.putIfAbsent(username, getSessionId());
 								lock.unlock();
 								is_locked=0;
-								User_Data.notify_client_fol(username, users_to_upd, usernames, StaticNames.NAME_FILE_FOL_UPD);
 								User_Data.notify_client_fol(username, users_to_upd, usernames, StaticNames.NAME_FILE_UNFOL_UPD);
+								User_Data.notify_client_fol(username, users_to_upd, usernames, StaticNames.NAME_FILE_FOL_UPD);
 								lock.lock();
 								is_locked=1;
 								return new Result(200, "{\"port\":" +mcas_port +", \"address\":\""+mcast_addr.getHostAddress() + "\"}");
@@ -785,22 +785,24 @@ public class Operations {
 		Lock lock = lock_r.writeLock();
 		File dir = new File(StaticNames.PATH_TO_PROFILES+username);
 		File post = new File(StaticNames.PATH_TO_PROFILES+username+"/Posts/"+id_post);
+		File post_in_blog= new File(StaticNames.PATH_TO_PROFILES+username+"/Blog/" + id_post);
 		try {
 			lock.lock();
 			if(!dir.exists())
 				return new Result(404, "{\"reason\":\"The user has been deleted\"}");
 			if(!post.exists())
 				return new Result(404, "{\"reason\":\"Post not found\"}");
-			if(Files.isSymbolicLink(post.toPath()))
+			if(Files.isSymbolicLink(post.toPath()) && !post_in_blog.exists())
 				return new Result(401, "{\"reason\":\"The post belongs to another user\"}");
-			User_Data.deleteDir(post);
-			try {
+			if(!Files.isSymbolicLink(post.toPath())) {
+				User_Data.deleteDir(post);
 				Files.delete(Paths.get(StaticNames.PATH_TO_POSTS+id_post));
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
 			}
+			Files.delete(post_in_blog.toPath());
 			return new Result(202, "{\"reason\":\"The post has been deleted succesfully\"}");
+		} catch(IOException e) {
+			e.printStackTrace();
+			return new Result(500, "{\"reason\":\"Server has bugs\"}");
 		} finally {
 			lock.unlock();
 		}
@@ -831,9 +833,8 @@ public class Operations {
 				return new Result(404, "{\"reason\":\"The usere was deleted\"}");
 			if(!Files.exists(post_to_rw))
 				return new Result(404, "{\"reason\":\"Post not found\"}");
-			if(Files.exists(Paths.get(dir+"/"+id_post)))
+			if(Files.exists(Paths.get(StaticNames.PATH_TO_PROFILES+username +"/Blog/"+id_post)))
 				return new Result(400, "{\"reason\":\"The post has been rewinded already\"}");
-			Files.createSymbolicLink(Paths.get(dir+"/"+id_post), post_to_rw.toRealPath());
 			Files.createSymbolicLink(Paths.get(StaticNames.PATH_TO_PROFILES+username+"/Blog/" +id_post), post_to_rw.toRealPath());
 			return new Result(200, "{\"reason\":\"Post got rewinded\"}");
 		} catch (FileAlreadyExistsException e) { 
@@ -1066,9 +1067,7 @@ public class Operations {
 		} catch (IOException | InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-		}
-		
-		System.out.println(value);
+		}		
 		try {
 			lock.lock();
 			if(!file.exists())

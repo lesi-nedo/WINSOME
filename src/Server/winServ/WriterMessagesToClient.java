@@ -70,7 +70,6 @@ public class WriterMessagesToClient implements Runnable {
 				out.flush();
 				ByteBuffer buf = ByteBuffer.wrap(out_stream.toByteArray());
 				c_sk.write(buf);
-				c_sk.close();
 				System.out.println(new String(buf.array()) );
 				if(!buf.hasRemaining()) {
 					if(!resp_wrp.getStatus() && c_sk.isConnected()) {

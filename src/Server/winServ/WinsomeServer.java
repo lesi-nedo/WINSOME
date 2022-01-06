@@ -107,7 +107,7 @@ public class WinsomeServer {
 	public void start_serv(int timeout) throws TooManyTagsException {
 		try(ServerSocketChannel s_cha=ServerSocketChannel.open()){
 			s_cha.socket().bind(new InetSocketAddress(InetAddress.getByName(this.IP_serv), this.port));
-			s_cha.socket().setSoTimeout(timeout);
+//			s_cha.socket().setSoTimeout(timeout);
 			s_cha.configureBlocking(false);
 			sel = Selector.open();
 			s_cha.register(sel, SelectionKey.OP_ACCEPT);
@@ -117,11 +117,9 @@ public class WinsomeServer {
 				System.err.println("Multicast variables not initialized");
 				return;
 			}
-			Thread thread=new Thread(new CalcEarningsThread(this.mcast_port, this.mcast_addr, this.usernames, this.reward_author));
-			thread.run();
 			while(this.can_run) {
 				this.timer.schedule(new CalcEarningsThread(this.mcast_port, this.mcast_addr, this.usernames, this.reward_author), this.period);
-				while(sel.select(5000)==0) {
+				while(sel.select()==0) {
 					this.wake_called.set(false);
 					reg_from_queue();
 					if(sel.selectNow() > 0) {
@@ -203,7 +201,7 @@ public class WinsomeServer {
 			HttpWrapper wrp;
 			while((wrp = this.queue.poll()) != null) {
 				this.client = wrp.get_client();
-				this.client.register(this.sel, wrp.get_op(), wrp);
+				this.client.register(this.sel, wrp.get_op(), wrp.getResp()==null ? null : wrp);
 			}
 				
 		}

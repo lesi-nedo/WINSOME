@@ -106,11 +106,9 @@ public class WinsomeServerMain {
 			InputStream cont_stream= new ByteArrayInputStream("suka blat".getBytes());
 			BasicHttpResponse req = new BasicHttpResponse(new ProtocolVersion("HTTP", 1,1), 200, "SSS");
 			req.setHeader("Cookie", "PHPSESSID=298zf09hf012fh2; csrftoken=u32t4o3tb3gg43; _gat=1");
-			System.out.println(req.toString().length());
 			BasicHttpEntity entity = new BasicHttpEntity();
 			entity.setContent(cont_stream);
 			req.setEntity(entity);
-			System.out.println(req.toString().length());
 			
 			
 			serv_fol=new Followers(users_to_upd);
@@ -119,9 +117,6 @@ public class WinsomeServerMain {
 			User_Data.load_Usernames(usernames);
 			
 			sign_ser=new Sign_In(REGPORT, tags_in_mem, usernames);//initialization of the remote object
-			sign_ser.register("oleksiy", "password", "python javascript");
-			sign_ser.register("marco", "password", "python css");
-			sign_ser.register("filippo", "password", "ocaml haske");
 
 			LocateRegistry.createRegistry(REGPORT, csf, ssf);
 			reg=LocateRegistry.getRegistry(REGHOST, REGPORT, new SslRMIClientSocketFactory());
@@ -131,6 +126,7 @@ public class WinsomeServerMain {
 			WinsomeServer serv=new WinsomeServer(TCPPORT, SERVER, BUFF_LIMIT, users_to_upd, tags_in_mem, usernames);//initialization of the server
 			Runtime.getRuntime().addShutdownHook(new ShutTheServ(serv));
 			serv.initMcastVars(MCASTPORT, GAINPERIOD, m_group, reward_author);
+			System.out.println("Server has started.");
 			serv.start_serv(TIMEOUT);
 		} catch (JsonParseException e1) {
 			// TODO Auto-generated catch block		
@@ -153,11 +149,8 @@ public class WinsomeServerMain {
 		} catch (SecurityException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-		} catch (UsernameAlreadyExistsException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 		}
- 
+		return;
 	}
 
 }
