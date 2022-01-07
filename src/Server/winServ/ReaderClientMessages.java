@@ -129,12 +129,14 @@ public class ReaderClientMessages implements Runnable {
 				String method = f_head.getMethod();
 				StringTokenizer t = new StringTokenizer(uri, "/");
 				String op = t.nextToken();
+				System.err.println(req.getRequestLine());
 				resp = WinsomeServer.METHODS_OP.get(method).get(op).apply(this, req);
 				HttpEntity entity = resp.getEntity();
 				entity_len = entity != null ?entity.toString().getBytes().length: 0;
 				resp_wrp=new HttpWrapper(resp, resp.toString().getBytes().length + entity_len, closed);
 			} catch (IOException | NoSuchElementException | NullPointerException | HttpException e) {
 				// TODO Auto-generated catch block
+				e.printStackTrace();
 				resp = create_resp(400, "Bad Request");
 				resp_wrp=new HttpWrapper(resp, (int) (resp.toString().length() + resp.getEntity().getContentLength()), closed);
 			} finally {
@@ -351,6 +353,7 @@ public class ReaderClientMessages implements Runnable {
 				e.printStackTrace();
 				return create_resp(500, "Internal Server Error");
 			} catch (NoSuchElementException e) {
+				e.printStackTrace();
 				return create_resp(400, "Bad Request");
 			}
 		} else {
@@ -691,6 +694,7 @@ public class ReaderClientMessages implements Runnable {
 			try {
 				ereq = get_with_entity(req);
 				json = new String(ereq.getEntity().getContent().readAllBytes());
+				System.err.println(json);
 				jsonPar = jsonFact.createParser(json);
 				while(!jsonPar.isClosed()) {
 					JsonToken tok = jsonPar.nextToken();
@@ -705,8 +709,10 @@ public class ReaderClientMessages implements Runnable {
 						}
 					}
 				}
-				if(content == null || title == null)
+				if(content == null || title == null) {
+					System.err.println("DDDDD");
 					return create_resp(400, "Bad Request");
+				}
 				Result res = Operations.create_post(username, title, content, this.usernames);
 				entity.setContentType("application/json");
 				entity.setContentLength(res.getReason().length());
@@ -715,6 +721,7 @@ public class ReaderClientMessages implements Runnable {
 				res_http.setEntity(entity);
 				return res_http;
 			}  catch (NoSuchElementException e) {
+				e.printStackTrace();
 				return create_resp(400, "Bad Request");
 			} catch (IOException e) {
 				// TODO Auto-generated catch blockWS
@@ -737,6 +744,7 @@ public class ReaderClientMessages implements Runnable {
 			String session_id=null;
 			
 			String cookie_val = req.getFirstHeader("Cookie").getValue();
+			System.err.println(cookie_val);
 			StringTokenizer toks = new StringTokenizer(cookie_val, "; ");
 			while(toks.hasMoreTokens()) {
 				String curr_val = toks.nextToken();

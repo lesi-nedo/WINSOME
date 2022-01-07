@@ -109,7 +109,7 @@ public class WinsomeServerMain {
 			Runtime.getRuntime().addShutdownHook(new ShutTheServ(serv));
 			serv.initMcastVars(MCASTPORT, GAINPERIOD, m_group, reward_author);
 			System.out.println("Server has started.");
-			serv.start_serv(TIMEOUT);
+			serv.start_serv(TIMEOUT);//starts the server
 		} catch (JsonParseException e1) {
 			// TODO Auto-generated catch block		
 			e1.printStackTrace();

@@ -116,8 +116,11 @@ public class WinsomeServer {
 				System.err.println("Multicast variables not initialized");
 				return;
 			}
+			//schedules the calculation of the earnings task in a timer
+			this.timer.schedule(new CalcEarningsThread(this.mcast_port, this.mcast_addr, this.usernames, this.reward_author), this.period, this.period);
+			//Each ready SocketChannel is passed to the threadPool to be served and than they get back 
+			//to the main server throughout the blocking queue
 			while(this.can_run) {
-				this.timer.schedule(new CalcEarningsThread(this.mcast_port, this.mcast_addr, this.usernames, this.reward_author), this.period);
 				while(sel.select()==0) {
 					this.wake_called.set(false);
 					reg_from_queue();
@@ -143,7 +146,7 @@ public class WinsomeServer {
 							c_cha.configureBlocking(false);
 							c_cha.register(sel, SelectionKey.OP_READ, null);
 							this.num_active_con++;
-//							System.out.println(this.num_active_con);
+//							System.err.println(this.num_active_con);
 						}
 						else if(key.isValid() && key.isReadable()) {
 							ReaderClientMessages task = new ReaderClientMessages(sel, key, this.BUFF_LIMIT, this.usernames, this.tags_in_mem, logged_users, this.users_to_upd, queue, this.wake_called);
@@ -163,6 +166,7 @@ public class WinsomeServer {
 					}
 				}
 			}
+			//shuts the poll and closes the socket
 			exec_pool.shutdown();
 			while(!exec_pool.isTerminated())
 				exec_pool.awaitTermination(AWAIT_BEFORE_HARD_TERM, TimeUnit.SECONDS);
@@ -177,14 +181,18 @@ public class WinsomeServer {
 			exec_pool.shutdownNow();
 		}
 	}
-	
+	//@Effects: Initializes the variables related to the multicast service
+	//@param port: port to attach to the packet
+	//@param period: the rest period of the thread
+	//@param addr: the address to attach to the packet
+	//@param rewar_author: the percentage that should be given to the author
 	public void initMcastVars(int port, int period, InetAddress addr, float reward_author) {
 		this.mcast_port=port;
 		this.mcast_addr=addr;
-		this.period=period;
+		this.period=period*1000;
 		this.reward_author=reward_author;
 	}
-	
+	//@Effects: terminates the server
 	public void end_me() {
 		this.can_run=false;
 		this.sel.wakeup();
@@ -197,7 +205,7 @@ public class WinsomeServer {
 	public InetAddress getMcas_addr() {
 		return this.mcast_addr;
 	}
-	
+	//@Effects: takes the wrapper from the queue, extracts the SocketChannel, and registers the new client with the relative operation
 	private void reg_from_queue() throws ClosedChannelException {
 		if(!this.queue.isEmpty()) {
 			HttpWrapper wrp;

@@ -100,7 +100,7 @@ class Sign_InTest {
 		"&test_user&777, yeah, '&test_tag&happy &test_tag&now'"
 	})
 	void testPas(String username, String password, String tags) {
-		System.out.println("FirstParallelUnitTest testPas() start => " + Thread.currentThread().getName());
+		System.out.println("  testPas() start => " + Thread.currentThread().getName());
 		Sign_In_Interface serObj = init_client();
 		Exception e = assertThrows(IllegalArgumentException.class, () -> {
 			serObj.register(username, password, tags);
@@ -112,7 +112,7 @@ class Sign_InTest {
 	@DisplayName("Test with two same username")
 	@Test
 	void testSameUser() {
-		System.out.println("FirstParallelUnitTest testPas() start => " + Thread.currentThread().getName());
+		System.out.println("  testPas() start => " + Thread.currentThread().getName());
 		Sign_In_Interface serObj = init_client();
 		try {
 			serObj.register("&test_user&1", "some_password", "&test_tag&i &test_tag&love &test_tag&Pisa");
@@ -136,7 +136,7 @@ class Sign_InTest {
 		"' &test_user&777', some_password, '&test_tag&happy &test_tag&now'"
 	})
 	void testUser(String username, String password, String tags) {
-		System.out.println("FirstParallelUnitTest testUser() start => " + Thread.currentThread().getName());
+		System.out.println("  testUser() start => " + Thread.currentThread().getName());
 		Sign_In_Interface serObj = init_client();
 		Exception e = assertThrows(IllegalArgumentException.class, () -> {
 			serObj.register(username, password, tags);
@@ -151,7 +151,7 @@ class Sign_InTest {
 		"&test_user&777,  some_password,",
 	})
 	void testTags(String username, String password, String tags) {
-		System.out.println("FirstParallelUnitTest testTags() start => " + Thread.currentThread().getName());
+		System.out.println("  testTags() start => " + Thread.currentThread().getName());
 		Sign_In_Interface serObj = init_client();
 		Exception e = assertThrows(IllegalArgumentException.class, () -> {
 			serObj.register(username, password, tags);
@@ -162,7 +162,7 @@ class Sign_InTest {
 	@Test
 	@DisplayName("Test with tags > 5")
 	void testTagsLimit() {
-		System.out.println("FirstParallelUnitTest testPasLimit() start => " + Thread.currentThread().getName());
+		System.out.println("  testPasLimit() start => " + Thread.currentThread().getName());
 		Sign_In_Interface serObj = init_client();
 		Exception e = assertThrows(TooManyTagsException.class, () -> {
 			serObj.register("&test_user&777" + User_Data.generateString(5), User_Data.generateString(5), "&test_tag&" + User_Data.generateString(20) + " " + "&test_tag&" + User_Data.generateString(20) + " " + "&test_tag&" + User_Data.generateString(20) + " " + "&test_tag&" + User_Data.generateString(20) + " " + "&test_tag&" + User_Data.generateString(20) + " " + "&test_tag&" + User_Data.generateString(20) + " " + "&test_tag&" + User_Data.generateString(20));
@@ -173,7 +173,7 @@ class Sign_InTest {
 	@ParameterizedTest(name= "{index} ==> {arguments} ")
 	@MethodSource("genUsers")
 	void testCorrect(String username, String password, String tags) {
-		System.out.println("FirstParallelUnitTest testCorrect() start => " + Thread.currentThread().getName());
+		System.out.println("testCorrect() start => " + Thread.currentThread().getName());
 		Sign_In_Interface serObj = init_client();
 		try {
 			Thread.sleep((new Random()).nextInt(400)+400);

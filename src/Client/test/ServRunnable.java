@@ -3,6 +3,9 @@ package test;
 import winServ.WinsomeServer;
 
 public class ServRunnable implements Runnable {
+	/*
+	 * It launches the server in a separate thread
+	 */
 	private WinsomeServer serv;
 	private int timeout;
 	public ServRunnable(WinsomeServer serv, int timeout) {

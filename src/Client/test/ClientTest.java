@@ -21,7 +21,9 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -30,9 +32,7 @@ import javax.rmi.ssl.SslRMIClientSocketFactory;
 import javax.rmi.ssl.SslRMIServerSocketFactory;
 
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.parallel.Execution;
@@ -60,6 +60,7 @@ import winServ.ShutTheServ;
 import winServ.WinsomeServer;
 
 
+@Execution(ExecutionMode.CONCURRENT)
 class ClientTest {
 	
 	static final String[] TAGS = {"Racing", "Pigeons",
@@ -82,16 +83,18 @@ class ClientTest {
 			"Sculling",
 			"Sculpting",
 			"Sewing",
-			"Shooting"};
+			"Shooting"};//from this array threads will choose randomly tags so to have some users with same same tags
 	
-	private final ByteArrayOutputStream outContent = new ByteArrayOutputStream();
-	private final ByteArrayOutputStream errContent = new ByteArrayOutputStream();
-	private final PrintStream originalOut = System.out;
-	private final PrintStream originalErr = System.err;
-	private static final int NUM_REGISTERS=20;
- 	private static Thread serv_thr = null;
+	private static final ByteArrayOutputStream outContent = new ByteArrayOutputStream();
+	private static final ByteArrayOutputStream errContent = new ByteArrayOutputStream();
+	private final static PrintStream originalOut = System.out;
+	private final static PrintStream originalErr = System.err;
+	private static final int NUM_REGISTERS=20;//number of users to be registered per test 
+ 	private static Thread serv_thr = null;//this thread will execute the call to start the server
 	private static WinsomeServer serv;
- 	
+	private static Lock lock =new ReentrantLock();//lock to synchronize the asserts
+ 	private static ConcurrentMap<String, Boolean> is_logged = new ConcurrentHashMap<String, Boolean>();
+	
 	@BeforeAll
 	static void init_serv() {
 		String SER_NAME="SIGN_IN"; //name of the RMI service that unable the sign in
@@ -165,6 +168,8 @@ class ClientTest {
 			System.out.println("Server has started.");
 			serv_thr = new Thread(new ServRunnable(serv, TIMEOUT));
 			serv_thr.start();
+			System.setOut(new PrintStream(outContent));
+//		    System.setErr(new PrintStream(errContent));
 		} catch (JsonParseException e1) {
 				// TODO Auto-generated catch block		
 			e1.printStackTrace();
@@ -189,18 +194,17 @@ class ClientTest {
 		}
 	}
 	
-	@BeforeEach
-	public void setUpStreams() {
-		System.setOut(new PrintStream(outContent));
-	    System.setErr(new PrintStream(errContent));
-	}
-
-	@AfterEach
 	public void restoreStreams() {
-	    System.setOut(originalOut);
+		System.setOut(originalOut);
 	    System.setErr(originalErr);
 	}
 	
+	/*
+	 * It is testing all the functionality of the server/client as random as possible and with different usernames. 
+	 * This test has been designed to check the correctness of the implementation, both server-side and client-side.
+	 * Because each call prints to the standard output, it synchronizes the threads with a lock so each thread reads its own response.
+	 * It might happen that same username is used concurrently, so to prevent that before login call it checks if that user is already logged, if yes than it returns.
+	 */
 	@DisplayName("test client")
 	@RepeatedTest(10)
 	void test_client() throws InterruptedException {
@@ -221,6 +225,7 @@ class ClientTest {
 		String NAME_CALLBACK_UPFOL=null;
 		int TCPPORT=0;
 		int TIMEOUT = 0;
+		int locked=0;
 		Set<String> all_followers=new HashSet<String>();
 		Sign_In_Interface sign_r;
 		Registry registry = null;
@@ -280,9 +285,13 @@ class ClientTest {
 					tags = tags.concat(" &test_tag&"+User_Data.generateString(rand.nextInt(15)+5));
 				}
 				tags = tags.trim();
+				lock.lock();
+				locked=1;
 				outContent.reset();
 				InterWithServ.send_req(inter, "register " +username + " " + password + " \"" +tags+ "\"");
 				assertEquals("ok\n", outContent.toString());
+				locked=0;
+				lock.unlock();
 			}
 			String out = null;
 			String new_user = null;
@@ -292,40 +301,86 @@ class ClientTest {
 			String id_post = null;
 			String temp_out = null;
 			boolean found =false;
-			outContent.reset();
-			InterWithServ.send_req(inter, "login "+username + " " +password);
-			assertEquals(username + " logged in\n", outContent.toString());
+			boolean i_logged_main =false;
+			boolean i_logged_sec = false;
+			lock.lock();
+			locked=1;
+			if(!is_logged.containsKey(username) || !is_logged.get(username)) {
+				outContent.reset();
+				InterWithServ.send_req(inter, "login "+username + " " +password);
+				assertEquals(username + " logged in\n", outContent.toString());
+				is_logged.put(username, true);
+				i_logged_main=true;
+			} else {
+				return;
+			}
+			locked=0;
+			lock.unlock();
+			lock.lock();
+			locked=1;
 			outContent.reset();
 			InterWithServ.send_req(inter, "list users");
 			out = outContent.toString();
+			locked=0;
+			lock.unlock();
 			m = p.matcher(out);
 			while(m.find()) {
 				users.add(m.group(1).strip());
 			}
 			for(String us: users) {
 				if(rand.nextInt() % Thread.currentThread().getId() > (int) (Thread.currentThread().getId()%2) ) {
+					lock.lock();
+					locked=1;
 					outContent.reset();
 					new_user=us;
 					InterWithServ.send_req(inter, "follow "+us);
 					assertEquals("The user: "+username+" now follows "+us+".\n", outContent.toString());
+					locked=0;
+					lock.unlock();
 				}
 					
 			}
 			if(new_user != null) {
+				lock.lock();
+				locked=1;
 				outContent.reset();
-				InterWithServ.send_req(inter, "logout");
-				assertEquals(username+" logged out\n", outContent.toString());
+				if(i_logged_main ) {
+					InterWithServ.send_req(inter, "logout");
+					assertEquals(username+" logged out\n", outContent.toString());
+					is_logged.put(username, false);
+					i_logged_main=false;
+				}
+				locked=0;
+				lock.unlock();
+				lock.lock();
+				locked=1;
 				outContent.reset();
-				InterWithServ.send_req(inter, "login "+new_user + " " +password);
-				assertEquals(new_user + " logged in\n", outContent.toString());
+				if(!is_logged.containsKey(new_user) || !is_logged.get(new_user)) {
+					InterWithServ.send_req(inter, "login "+new_user + " " +password);
+					assertEquals(new_user + " logged in\n", outContent.toString());
+					is_logged.put(new_user, true);
+					i_logged_sec=true;
+				} else {
+					return;
+				}
+				locked=0;
+				lock.unlock();
+				lock.lock();
+				locked=1;
 				outContent.reset();
 				InterWithServ.send_req(inter, "post \"this is a post\" \"some content\"");
 				temp_out = outContent.toString();
+				locked=0;
+				lock.unlock();
 				id_post = temp_out.substring(temp_out.indexOf(':')+1, temp_out.length()-2).strip();
 				assertEquals("Post has been succesfully added with id", temp_out.substring(0, temp_out.indexOf(':')));
+				lock.lock();
+				locked=1;
 				outContent.reset();
 				InterWithServ.send_req(inter, "blog");
 				temp_out = outContent.toString();
+				locked=0;
+				lock.unlock();
 				m = p.matcher(temp_out);
 				m.find();
 				while(m.find()) {
@@ -334,9 +389,13 @@ class ClientTest {
 				}
 				assertTrue(true);
 				found=false;
+				lock.lock();
+				locked=1;
 				outContent.reset();
 				InterWithServ.send_req(inter, "show feed");
 				temp_out = outContent.toString();
+				locked=0;
+				lock.unlock();
 				m = p.matcher(temp_out);
 				m.find();
 				while(m.find()) {
@@ -345,10 +404,14 @@ class ClientTest {
 				}
 				assertTrue(true);
 				found=false;
+				lock.lock();
+				locked=1;
 				outContent.reset();
 				InterWithServ.send_req(inter, "list followers");
 				p = Pattern.compile("(?<=-)(.+)");
 				temp_out = outContent.toString();
+				locked=0;
+				lock.unlock();
 				m = p.matcher(temp_out);
 				while(m.find()) {
 					if(username.equals(m.group(1).strip()))
@@ -356,23 +419,56 @@ class ClientTest {
 				}
 				assertTrue(true);
 				found=false;
+				lock.lock();
+				locked=1;
 				outContent.reset();
-				InterWithServ.send_req(inter, "delete "+id_post);
-				assertEquals("The post has been deleted succesfully.\n", outContent.toString());
+				InterWithServ.send_req(inter, "show post "+ id_post);
+				if(outContent.toString().length()!= 0) {
+					outContent.reset();
+					InterWithServ.send_req(inter, "delete "+id_post);
+					assertEquals("The post has been deleted succesfully.\n", outContent.toString());
+				}
+				locked=0;
+				lock.unlock();
+				lock.lock();
+				locked=1;
 				outContent.reset();
 				InterWithServ.send_req(inter, "post \"this is\" \"wish you were here\"");
 				temp_out = outContent.toString();
+				locked=0;
+				lock.unlock();
 				id_post = temp_out.substring(temp_out.indexOf(':')+1, temp_out.length()-2).strip();
 				assertEquals("Post has been succesfully added with id", temp_out.substring(0, temp_out.indexOf(':')));
+				lock.lock();
+				locked=1;
+				if(i_logged_sec) {
+					outContent.reset();
+					InterWithServ.send_req(inter, "logout");
+					assertEquals(new_user+" logged out\n", outContent.toString());
+					is_logged.put(new_user, false);
+					i_logged_sec=false;
+				}
+				locked=0;
+				lock.unlock();
+				lock.lock();
+				locked=1;
 				outContent.reset();
-				InterWithServ.send_req(inter, "logout");
-				assertEquals(new_user+" logged out\n", outContent.toString());
-				outContent.reset();
-				InterWithServ.send_req(inter, "login "+username + " " +password);
-				assertEquals(username + " logged in\n", outContent.toString());
+				if(!is_logged.containsKey(username) || !is_logged.get(username)) {
+					InterWithServ.send_req(inter, "login "+username + " " +password);
+					assertEquals(username + " logged in\n", outContent.toString());
+					is_logged.put(username, true);
+				}  else {
+					return;
+				}
+				locked=0;
+				lock.unlock();
+				lock.lock();
+				locked=1;
 				outContent.reset();
 				InterWithServ.send_req(inter, "show feed");
 				temp_out=outContent.toString();
+				locked=0;
+				lock.unlock();
 				p = Pattern.compile("(?<=\\n)(.+?)(?=\\|)");
 				m = p.matcher(temp_out);
 				m.find();
@@ -382,10 +478,14 @@ class ClientTest {
 				}
 				assertTrue(true);
 				found=false;
+				lock.lock();
+				locked=1;
 				outContent.reset();
 				InterWithServ.send_req(inter, "list following");
 				p = Pattern.compile("(?<=-)(.+)");
 				temp_out = outContent.toString();
+				locked=0;
+				lock.unlock();
 				m = p.matcher(temp_out);
 				m.find();
 				while(m.find()) {
@@ -394,63 +494,122 @@ class ClientTest {
 				}
 				assertTrue(true);
 				found=false;
+				lock.lock();
+				locked=1;
 				outContent.reset();
-				InterWithServ.send_req(inter, "rate "+ id_post +" 1");
-				assertEquals("The post was rated.\n", outContent.toString());
+				InterWithServ.send_req(inter, "show post "+ id_post);
+				if(outContent.toString().length()!= 0) {
+					outContent.reset();
+					InterWithServ.send_req(inter, "rate "+ id_post +" 1");
+					assertEquals("The post was rated.\n", outContent.toString());
+				}
+				locked=0;
+				lock.unlock();
+				lock.lock();
+				locked=1;
 				outContent.reset();
-				InterWithServ.send_req(inter, "rewin "+id_post);
-				assertEquals("Post got rewinded.\n", outContent.toString());
+				InterWithServ.send_req(inter, "show post "+ id_post);
+				if(outContent.toString().length()!= 0) {
+					outContent.reset();
+					InterWithServ.send_req(inter, "rewin "+id_post);
+					assertEquals("Post got rewinded.\n", outContent.toString());
+				}
+				locked=0;
+				lock.unlock();
+				lock.lock();
+				locked=1;
 				outContent.reset();
-				InterWithServ.send_req(inter, "comment "+id_post+" \"this is a comment\"");
-				assertEquals("The post was commented.\n", outContent.toString());
+				InterWithServ.send_req(inter, "show post "+ id_post);
+				if(outContent.toString().length()!= 0) {
+					outContent.reset();
+					InterWithServ.send_req(inter, "comment "+id_post+" \"this is a comment\"");
+					assertEquals("The post was commented.\n", outContent.toString());
+				}
+				locked=0;
+				lock.unlock();
+				lock.lock();
+				locked=1;
 				outContent.reset();
 				InterWithServ.send_req(inter, "unfollow "+new_user);
 				assertEquals("The user: "+username+" unfollowed "+new_user+".\n", outContent.toString());
+				locked=0;
+				lock.unlock();
+				lock.lock();
+				locked=1;
 				outContent.reset();
 				Thread.sleep(1000);
 				InterWithServ.send_req(inter, "list following");
 				p = Pattern.compile("(?<=-)(.+)");
 				temp_out = outContent.toString();
+				locked=0;
+				lock.unlock();
 				m = p.matcher(temp_out);
 				while(m.find()) {
 					if(new_user.equals(m.group(1).strip()))
 						found=true;
 				}
 				assertFalse(found);
+				lock.lock();
+				locked=1;
 				outContent.reset();
 				InterWithServ.send_req(inter, "wallet btc");
 				p = Pattern.compile("(\\d.\\d+)|null");
 				temp_out = outContent.toString();
+				locked=0;
+				lock.unlock();
 				m = p.matcher(temp_out);
 				assertTrue(m.find());
+				lock.lock();
+				locked=1;
 				outContent.reset();
 				InterWithServ.send_req(inter, "wallet");
 				p = Pattern.compile("(\\d.\\d+)|0");
 				temp_out = outContent.toString();
+				locked=0;
+				lock.unlock();
 				m = p.matcher(temp_out);
 				assertTrue(m.find());
 			}
+			lock.lock();
+			locked=1;
+			if(i_logged_main) {
+				outContent.reset();
+				InterWithServ.send_req(inter, "logout");
+				assertEquals(username+" logged out\n", outContent.toString());
+				is_logged.put(username, false);
+				i_logged_main=false;
+			}
+			locked=0;
+			lock.unlock();
 			
 		} catch (IOException e) {
 			restoreStreams();
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+			System.exit(0);
 		} catch (NotBoundException e) {
 			restoreStreams();
 
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+			System.exit(0);
+
 		} catch (IncorrectOperationException e) {
 			restoreStreams();
 
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+			System.exit(0);
+
 		} catch (IllegalArgumentException e) {
 			restoreStreams();
 
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+			System.exit(0);
 		} finally {
+			if(locked == 1)
+				lock.unlock();
 			if(username_wrp.get_thread()!=null) {
 				username_wrp.get_thread().interrupt();
 				try {
@@ -464,6 +623,8 @@ class ClientTest {
 	}
 	@AfterAll
 	public static  void cleanup() {
+		System.setOut(originalOut);
+//	    System.setErr(originalErr);
 		serv_thr.interrupt();
 		try {
 			try {

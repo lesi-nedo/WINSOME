@@ -5,6 +5,7 @@ import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.net.SocketTimeoutException;
+import java.util.Arrays;
 
 
 public class ReaderNotifCalc implements Runnable {
@@ -43,7 +44,7 @@ public class ReaderNotifCalc implements Runnable {
 						continue;
 					}
 				}
-//				System.out.println(new String(dp.getData(), dp.getOffset(), dp.getLength()));
+				System.err.println("Received: " +new String(dp.getData(), dp.getOffset(), dp.getLength()));
 			}
 			
 		} catch (IOException e) {

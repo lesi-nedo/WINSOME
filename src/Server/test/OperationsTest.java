@@ -87,6 +87,7 @@ class OperationsTest {
 	@ParameterizedTest()
 	@MethodSource("users_and_pas")
 	void test_login(String username, String password) {
+		System.out.println("test_login() start => " + Thread.currentThread().getName());
 		try {
 			assertEquals(200, Operations.login(username, password, this.logged_users, usernames, users_to_upd, 0 , InetAddress.getByName("8.8.8.8")).getResult());
 		} catch (IOException e) {
@@ -99,6 +100,7 @@ class OperationsTest {
 	@ParameterizedTest()
 	@MethodSource("users_and_pas")
 	void test_login_inc_pas(String username, String password) {
+		System.out.println("test_login_inc_pas() start => " + Thread.currentThread().getName());
 		try {
 			assertEquals(400, Operations.login(username, password+"TEST", this.logged_users, usernames, users_to_upd, 0, null).getResult());
 		} catch (IOException e) {
@@ -111,6 +113,7 @@ class OperationsTest {
 	@ParameterizedTest()
 	@MethodSource("users_and_pas")
 	void test_login_inc_user(String username, String password) {
+		System.out.println("test_login_inc_user() start => " + Thread.currentThread().getName());
 		try {
 			Result res =Operations.login(username+"TEST", password+"TEST", this.logged_users, usernames, users_to_upd, 0, null);
 			assertEquals(404, res.getResult());
@@ -125,6 +128,7 @@ class OperationsTest {
 	@ParameterizedTest()
 	@CsvSource({","})
 	void test_login_inc_val(String username, String password) {
+		System.out.println("test_login_inc_val() start => " + Thread.currentThread().getName());
 		Exception e = assertThrows(IllegalArgumentException.class, ()-> {
 			Operations.login(username, password, logged_users, usernames, users_to_upd,0, null);
 		});
@@ -136,6 +140,7 @@ class OperationsTest {
 	@ParameterizedTest()
 	@MethodSource("users_and_pas")
 	void test_logout(String username, String password) {
+		System.out.println("test_logout() start => " + Thread.currentThread().getName());
 		if(this.logged_users.containsKey(username)) {
 			Result res =Operations.logout(username, this.logged_users);
 			assertEquals(202, res.getResult());
@@ -148,6 +153,7 @@ class OperationsTest {
 	@ParameterizedTest()
 	@MethodSource("users_and_pas")
 	void test_logout_user_out(String username, String password) {
+		System.out.println("test_logout_user_out() start => " + Thread.currentThread().getName());
 		if(!this.logged_users.containsKey(username)) {
 			Result res =Operations.logout(username, this.logged_users);
 			assertEquals(400, res.getResult());
@@ -159,6 +165,7 @@ class OperationsTest {
 	@ParameterizedTest()
 	@MethodSource("create_users_with_tags_in_common")
 	void test_list_users(String username) {
+		System.out.println("test_list_users() start => " + Thread.currentThread().getName());
 		try {
 			int total=0;//if the users have one tag in common than this variable should be >0
 			Result res = Operations.list_users(username, this.usernames, this.tags_in_mem);
@@ -180,6 +187,7 @@ class OperationsTest {
 	@ParameterizedTest()
 	@MethodSource("create_users_with_tags_in_common")
 	void test_list_users_not_correct(String username) {
+		System.out.println("test_list_users_not_correct() start => " + Thread.currentThread().getName());
 		try {
 			Result res = Operations.list_users(username+"BELLO", this.usernames, this.tags_in_mem);
 			assertEquals(404, res.getResult());
@@ -192,6 +200,7 @@ class OperationsTest {
 	@Test
 	@DisplayName("Test follow_user")
 	void test_follow() {
+		System.out.println("test_test_follow() start => " + Thread.currentThread().getName());
 		Random rand = new Random();
 		int upper = 100;//the upper limit of users that will be followed 
 		int lower=10;//le lower limit
@@ -238,6 +247,7 @@ class OperationsTest {
 	@Test
 	@DisplayName("Test list_following")
 	void test_following() {
+		System.out.println("test_test_following() start => " + Thread.currentThread().getName());
 		try {
 			Thread.sleep(400);//this needed if the test is run with ExecutionMode.CONCURRENT
 		} catch (InterruptedException e1) {
@@ -267,6 +277,7 @@ class OperationsTest {
 	@Test
 	@DisplayName("Test unfollow_user")
 	void test_unfollow() {
+		System.out.println("test_unfollow() start => " + Thread.currentThread().getName());
 		Random rand = new Random();
 		String us=null;
 		String us_unf=null;
@@ -308,6 +319,7 @@ class OperationsTest {
 	@Test
 	@DisplayName("Test create_post")
 	void test_create_post() {
+		System.out.println("test_create_post() start => " + Thread.currentThread().getName());
 		String rand_usr=null;
 		Random rand=new Random();
 		ArrayList<String> users=new ArrayList<String>(usernames.keySet());
@@ -327,6 +339,7 @@ class OperationsTest {
 	@Test
 	@DisplayName("Test rewin_post")
 	void test_rewin_post() {
+		System.out.println("test_rewin_post() start => " + Thread.currentThread().getName());
 		String rand_usr=null;
 		Random rand=new Random();
 		String rand_author=null;
@@ -377,6 +390,7 @@ class OperationsTest {
 	@Test
 	@DisplayName("Test view_blog")
 	void test_view_blog() {
+		System.out.println("test_view_blog() start => " + Thread.currentThread().getName());
 		try {
 			while(all_fol_posted.size() == 0)
 				Thread.sleep(400);
@@ -408,6 +422,7 @@ class OperationsTest {
 	@Test
 	@DisplayName("Test show_feed")
 	void test_show_feed() {
+		System.out.println("test_show_feed() start => " + Thread.currentThread().getName());
 		try {
 			while(all_fol_posted.size() == 0)
 				Thread.sleep(400);
@@ -439,6 +454,7 @@ class OperationsTest {
 	@Test
 	@DisplayName("Test show_post")
 	void test_show_post() {
+		System.out.println("test_show_post() start => " + Thread.currentThread().getName());
 		String rand_usr=null;
 		Random rand=new Random();
 		String rand_author=null;
@@ -492,6 +508,7 @@ class OperationsTest {
 	@Test
 	@DisplayName("Test delete_post")
 	void test_delete_post() {
+		System.out.println("test_delete_post() start => " + Thread.currentThread().getName());
 		Random rand=new Random();
 		String rand_author=null;
 		String rand_id=null;
@@ -537,6 +554,7 @@ class OperationsTest {
 	@Test
 	@DisplayName("Test add_comment")
 	void test_add_comment() {
+		System.out.println("test_add_comment() start => " + Thread.currentThread().getName());
 		Random rand=new Random();
 		String rand_usr=null;
 		String rand_author=null;
@@ -600,6 +618,7 @@ class OperationsTest {
 	@Test
 	@DisplayName("Test rate_post")
 	void test_rete_post() {
+		System.out.println("test_rate_post() start => " + Thread.currentThread().getName());
 		Random rand=new Random();
 		String rand_usr=null;
 		String rand_author=null;

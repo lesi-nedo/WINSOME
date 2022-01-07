@@ -5,10 +5,13 @@ import java.nio.channels.SocketChannel;
 import org.apache.http.HttpResponse;
 
 public class HttpWrapper {
+	/*
+	 * Overview: it is a wrapper for the response and serves as the object that is being passed to the main thread to be register with the correct operation. 
+	 */
 	private HttpResponse resp;
-	private int length;
-	private boolean closed;
-	private int OP_TYPE;
+	private int length;//the length of the response
+	private boolean closed;//if the client requested to close the connection
+	private int OP_TYPE;//the type of operation associated to the channel
 	private SocketChannel client;
 	
 	public HttpWrapper(HttpResponse resp, int length, boolean closed) {

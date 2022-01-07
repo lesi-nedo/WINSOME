@@ -211,6 +211,7 @@ public class InterWithServ {
 			path.mkdir();
 			file_foll.createNewFile();
 			System.out.println("ok");
+			System.out.flush();
 		} catch (NoSuchElementException e) {
 			System.err.println("Missing an argument");
 		} catch (IllegalArgumentException e) {
@@ -248,7 +249,7 @@ public class InterWithServ {
 				JsonFactory jsonFact = new JsonFactory();
 				JsonParser par = jsonFact.createParser(res);
 				String tags ="";
-				System.out.println(String.format("%1$-20s|%2$50s", "Users", "Tags"));
+				System.out.println(String.format("%1$-20s|%2$30s", "Users", "Tags"));
 				Stream.generate(() -> "-").limit(90).forEach(System.out::print);
 				System.out.println("");
 				par.nextToken();
@@ -260,8 +261,10 @@ public class InterWithServ {
 						tags = tags.concat(", " + tag);
 					}
 					tags = tags.replaceFirst(", ", "");
-					System.out.println(String.format("%1$-20s|%2$50s", user, tags));
+					System.out.println(String.format("%1$-20s|  %2$-50s", user, tags));
+					tags="";
 				}
+				System.out.flush();
 			} catch(Exception e) {
 				e.printStackTrace();
 			}
@@ -287,6 +290,7 @@ public class InterWithServ {
 				}
 				System.out.flush();
 			}
+			System.out.flush();
 		} catch(Exception e) {
 			e.printStackTrace();
 		}
@@ -321,6 +325,7 @@ public class InterWithServ {
 					System.out.println(String.format("%1$-15s|%2$-21s|%3$40s", id_post, author, title));
 				}
 			}
+			System.out.flush();
 		} catch(Exception e) {
 			e.printStackTrace();
 		}
@@ -356,6 +361,7 @@ public class InterWithServ {
 					System.out.println(String.format("%1$-15s|%2$-20s|%3$-40s", id_post, author, title));
 				}
 			}
+			System.out.flush();
 		} catch(Exception e) {
 			e.printStackTrace();
 		}
@@ -372,19 +378,20 @@ public class InterWithServ {
 			if(res != null) {
 				JsonFactory jsonFact = new JsonFactory();
 				JsonParser par = jsonFact.createParser(res);
-				System.out.println(String.format("%-15s|%20s", "Value", "Timestamp"));
-				Stream.generate(() -> "-").limit(45).forEach(System.out::print);
+				System.out.println(String.format("%-15s|%35s", "Value", "Timestamp"));
+				Stream.generate(() -> "-").limit(65).forEach(System.out::print);
 				System.out.println("");
 				par.nextToken();
 				while(par.nextToken() != JsonToken.END_OBJECT) {
 					value = par.getText();
 					par.nextToken();
 					times = par.getText();
-					System.out.println(String.format("%-15s|%20s", value, times));
+					System.out.println(String.format("%-15s|%35s", value, times));
 				}
 				if(value == null)
-					System.out.println(String.format("%-15s|%20s", "0", "------"));
+					System.out.println(String.format("%-15s|%35s", "0", "------"));
 			}
+			System.out.flush();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -401,13 +408,13 @@ public class InterWithServ {
 			if(res != null) {
 				JsonFactory jsonFact = new JsonFactory();
 				JsonParser par = jsonFact.createParser(res);
-				System.out.println(String.format("%1$-25s|%2$20s", "Value in bitcoin", "Timestamp"));
-				Stream.generate(() -> "-").limit(45).forEach(System.out::print);
+				System.out.println(String.format("%1$-35s|%2$30s", "Value in bitcoin", "Timestamp"));
+				Stream.generate(() -> "-").limit(65).forEach(System.out::print);
 				System.out.println("");
 				par.nextToken();
 				value = par.getText();
 				if(value == null) {
-					System.out.println(String.format("%1$-25s|%2$20s", "0", "------"));
+					System.out.println(String.format("%1$-35s|%2$30s", "0", "------"));
 					return;
 				}
 				par.nextToken();
@@ -416,9 +423,10 @@ public class InterWithServ {
 				par.nextToken();
 				par.nextToken();
 				times = par.getText();
-				System.out.println(String.format("%1$-25s|%2$20s", value, times));
+				System.out.println(String.format("%1$-35s|%2$30s", value, times));
 				
 			}
+			System.out.flush();
 		} catch(Exception e) {
 			e.printStackTrace();
 		}
@@ -476,6 +484,7 @@ public class InterWithServ {
 				System.out.println("     " + par.getText());
 				System.out.flush();
 			}
+			System.out.flush();
 		} catch(Exception e) {
 			e.printStackTrace();
 		}
@@ -529,6 +538,7 @@ public class InterWithServ {
 					 this.username_wrp.set_username(username);
 					 this.logged=true;
 					 System.out.println(username + " logged in");
+					 System.out.flush();
 					 m = p.matcher(res);
 					 m.find();
 					 this.mcast_port = Integer.valueOf(m.group(1));
@@ -589,6 +599,7 @@ public class InterWithServ {
 			this.all_followers.clear();
 			this.mcast_not.leave();
 			System.out.println(this.username_wrp.get_username() + " logged out");
+			System.out.flush();
 	 }
 	}
 	//@Effects: asks the server to follow the user x
@@ -603,6 +614,7 @@ public class InterWithServ {
 			Matcher m = p.matcher(res);
 			m.find();
 			System.out.println(m.group(2)+".");
+			System.out.flush();
 		}
 	}
 	
@@ -618,6 +630,7 @@ public class InterWithServ {
 			Matcher m = p.matcher(res);
 			m.find();
 			System.out.println(m.group(2)+".");
+			System.out.flush();
 		}
 	}
 	
@@ -631,6 +644,7 @@ public class InterWithServ {
 			Matcher m = p.matcher(res);
 			m.find();
 			System.out.println(m.group(2)+".");
+			System.out.flush();
 		}
 	}
 	//@effects: asks the server to rewind the post
@@ -648,6 +662,7 @@ public class InterWithServ {
 				Matcher m = p.matcher(res);
 				m.find();
 				System.out.println(m.group(2)+".");
+				System.out.flush();
 			}
 		} catch (NoSuchElementException e) {
 			System.err.println("Usage: login <username> <password>");
@@ -679,6 +694,7 @@ public class InterWithServ {
 				m = p.matcher(res);
 				m.find();
 				System.out.println(m.group(2)+".");
+				System.out.flush();
 			}
 			stream.close();
 		} catch (NoSuchElementException e) {
@@ -713,6 +729,7 @@ public class InterWithServ {
 				m = p.matcher(res);
 				m.find();
 				System.out.println(m.group(2)+".");
+				System.out.flush();
 			}
 			stream.close();
 		} catch (NoSuchElementException e) {
@@ -735,6 +752,7 @@ public class InterWithServ {
 			Matcher m = p.matcher(res);
 			m.find();
 			System.out.println(m.group(2)+".");
+			System.out.flush();
 		}
 	}
 	

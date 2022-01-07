@@ -131,6 +131,9 @@ public class CalcEarningsThread extends TimerTask {
 									second_arg=+2/(1+Math.pow(Math.E, -(num_coms-1)));
 								}
 							}
+							//updates the number of thumbs up,
+							////it checks the time of creation of the file, if timestamp of the file is greater than the 
+							//timestamp of the last check that is a new reaction 
 							for(File th_up: all_thumb_up) {
 								if(th_up.lastModified() > old_last_calc) {
 									num_new_thmb_up++;
@@ -142,16 +145,18 @@ public class CalcEarningsThread extends TimerTask {
 							lock_write.unlock();
 							lock_read.lock();
 						}
-						num_new_iter=num_old_iter+1;
-						first_arg=Math.max(num_new_thmb_up -(num_new_thmb_down - num_old_thmb_down), 0) +1;
-						earnings= (Math.log(first_arg)+Math.log(second_arg+1))/num_new_iter;
+						num_new_iter=num_old_iter+1;//updates the number of iteration
+						first_arg=Math.max(num_new_thmb_up -(num_new_thmb_down - num_old_thmb_down), 0) +1;//computes the argument of the first log
+						earnings= (Math.log(first_arg)+Math.log(second_arg+1))/num_new_iter;// calculates the earnings
 						num_cur=this.users_earnings.size();
 						num_cur=num_cur == 0 ? 1 : num_cur-1;
-						author=earnings*this.reward_author;
-						others=earnings*this.reward_others;
+						author=earnings*this.reward_author;//calculates the author share
+						others=earnings*this.reward_others;//other eser's share
+						//stores the user and relative earnings in hashMap
 						if(earnings > 0.0d) {
 							for(Map.Entry<String, Double> entr: this.users_earnings.entrySet()) {
 								if(entr.getKey().equals(user)) {
+									//adds to the author's share
 									entr.setValue(Double.valueOf(entr.getValue()+author));
 								} else {
 									entr.setValue(Double.valueOf(entr.getValue()+(others/num_cur)));
@@ -172,6 +177,8 @@ public class CalcEarningsThread extends TimerTask {
 						
 					}
 				}
+			} catch (NullPointerException e) {
+				continue; //the post was deleted in meantime i.e between lock_read.unlock e lock_write.lock()
 			} catch (JsonParseException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -183,6 +190,7 @@ public class CalcEarningsThread extends TimerTask {
 			}
 			
 		}
+		//updates the wallet with the new earnings
 		this.users_earnings.forEach((u,e) ->{
 			if(e == 0.0d)
 				return;
@@ -216,10 +224,12 @@ public class CalcEarningsThread extends TimerTask {
 			}
 		});
 		try {
+			//writes to the group
 			ByteBuffer buf = ByteBuffer.allocate(StaticNames.MSG_NOTIFY_MULTICAS.length());
 			buf.put(StaticNames.MSG_NOTIFY_MULTICAS.getBytes());
 			DatagramSocket sock = new DatagramSocket();
 			DatagramPacket dat = new DatagramPacket(buf.array(), buf.position(), this.addr, this.port);
+			System.err.println("Sended the PACKET");
 			sock.send(dat);
 			sock.close();
 		} catch(IOException e) {

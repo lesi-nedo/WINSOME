@@ -23,6 +23,10 @@ import org.apache.http.impl.io.IdentityOutputStream;
 import org.apache.http.impl.io.SessionOutputBufferImpl;
 
 public class WriterMessagesToClient implements Runnable {
+	
+	/*
+	 * Overview: takes the attachment that comes with the key and writes it to the SocketChannel 
+	 */
 	private SelectionKey key;
 	private BlockingQueue<HttpWrapper> queue;
 	private AtomicBoolean wake_called;
@@ -70,8 +74,8 @@ public class WriterMessagesToClient implements Runnable {
 				out.flush();
 				ByteBuffer buf = ByteBuffer.wrap(out_stream.toByteArray());
 				c_sk.write(buf);
-//				System.out.println("");
-//				System.out.println(new String(buf.array()) );//response
+				System.err.println("");
+				System.err.println(new String(buf.array()) );//response
 				if(!buf.hasRemaining()) {
 					if(!resp_wrp.getStatus() && c_sk.isConnected()) {
 						buf.clear();
