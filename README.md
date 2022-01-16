@@ -1,5 +1,5 @@
 ## General
-For those who seek some useful information, I want to apologize for not including a good read.me.
+For those who seek some useful information, I want to apologize for not including a good readme.
 
 ## Text
 <object data="ProgettoWINSOME_v2.pdf" type="application/pdf" width="700px" height="700px">
