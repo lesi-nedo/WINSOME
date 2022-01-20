@@ -1,4 +1,4 @@
-/bin/
+bin/*
 .token
 src/Server/ssl/ca-cert
 src/Server/ssl/ca-cert.srl
