@@ -1,0 +1,18 @@
+javac -sourcepath src -d bin_s  -cp '.:./libs/*' ./src/Server/*.java ./src/Server/notify_client/*.java ./src/Server/sign_in/*.java ./src/Server/user/*.java ./src/Server/utils/*java ./src/Server/winServ/*.java ./src/Client/rec_fol/*.java
+
+
+javac -d bin\_c -sourcepath src -cp '.:./libs/*' ./src/Client/rec\_fol/*.java ./src/Client/serv\_inter/*.java ./src/Client/utils/*.java  ./src/Server/notify\_client/*.java ./src/Server/sign\_in/Sign\_In\_Interface.java ./src/Server/sign\_in/TooManyTagsException.java ./src/Server/sign\_in/UsernameAlreadyExistsException.java
+
+
+exec server
+java -cp '.:./libs/*:./bin_s' WinsomeServerMain
+
+exec client
+java -cp '.:./libs/*:./bin_c' WinsomeClientMain
+
+exec Server.jar
+java -cp '.:./libs/*:Server.jar' WinsomeServerMain
+
+exec Client.jar
+java -cp Client.jar WinsomeClientMain
+

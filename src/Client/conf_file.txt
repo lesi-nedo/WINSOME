@@ -1,3 +1,10 @@
 #all avaible configurations are in WinsomeClientMain in the static array CONFS
+<<<<<<< HEAD
 SERVER=10.102.29.64
 TCPPORT=5959
+=======
+SERVER=10.102.12.90
+TCPPORT=5959
+#name of the NetworkInterface
+NAME_NET_INTER=wlo1
+>>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)

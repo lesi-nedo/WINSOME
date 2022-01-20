@@ -353,6 +353,15 @@ class OperationsTest {
 		ArrayList<String> users=new ArrayList<String>(usernames.keySet());
 		for(int i=0; i<NUM_POSTS_REWIN; i++) {
 			rand_usr=users.get(rand.nextInt(users.size()));
+<<<<<<< HEAD
+=======
+			try {
+				while(all_fol_posted.size() == 0)Thread.sleep(rand.nextInt(800)+100);//this needed if the test is run with ExecutionMode.CONCURRENT
+			} catch (InterruptedException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+>>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 			rand_author=all_fol_posted.get(rand.nextInt(all_fol_posted.size()));
 			File[] file =new File(StaticNames.PATH_TO_PROFILES+rand_author+"/Posts").listFiles();
 			int exists=0;
@@ -391,6 +400,7 @@ class OperationsTest {
 	@DisplayName("Test view_blog")
 	void test_view_blog() {
 		System.out.println("test_view_blog() start => " + Thread.currentThread().getName());
+<<<<<<< HEAD
 		try {
 			while(all_fol_posted.size() == 0)
 				Thread.sleep(400);
@@ -400,6 +410,12 @@ class OperationsTest {
 		}
 		String rand_usr=null;
 		Random rand=new Random();
+=======
+		String rand_usr=null;
+		Random rand=new Random();
+		if(all_fol_posted.size() == 0)
+			return;
+>>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 		for(int i=0; i<NUM_OF_POSTS; i++) {
 			rand_usr=all_fol_posted.get(rand.nextInt(all_fol_posted.size()));
 			try {

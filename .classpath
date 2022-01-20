@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
+<<<<<<< HEAD
 	<classpathentry excluding="Server/|Client/|JAR_FILES/" kind="src" path="src"/>
 	<classpathentry kind="src" path="src/Client"/>
 	<classpathentry kind="src" path="src/Server"/>
@@ -14,5 +15,18 @@
 	<classpathentry kind="lib" path="/home/nedo1993/Desktop/WINSOME/src/JAR_FILES/jackson-core-2.13.0.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/5"/>
 	<classpathentry kind="lib" path="/home/nedo1993/Desktop/WINSOME/src/JAR_FILES/httpcore-4.4.15.jar"/>
+=======
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry excluding="Client/|Server/" kind="src" path="src"/>
+	<classpathentry kind="src" path="src/Client"/>
+	<classpathentry kind="src" path="src/Server"/>
+	<classpathentry kind="lib" path="Client.jar"/>
+	<classpathentry kind="lib" path="libs/httpcore-4.4.15.jar"/>
+	<classpathentry kind="lib" path="libs/jackson-annotations-2.13.0.jar"/>
+	<classpathentry kind="lib" path="libs/jackson-core-2.13.0.jar"/>
+	<classpathentry kind="lib" path="libs/jackson-databind-2.13.0.jar"/>
+	<classpathentry kind="lib" path="libs/spring-security-crypto-5.6.0.jar"/>
+	<classpathentry kind="lib" path="Server.jar"/>
+>>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 	<classpathentry kind="output" path="bin"/>
 </classpath>

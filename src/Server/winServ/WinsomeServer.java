@@ -1,6 +1,10 @@
 package winServ;
 
 import java.io.IOException;
+<<<<<<< HEAD
+=======
+import java.net.BindException;
+>>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
@@ -106,7 +110,10 @@ public class WinsomeServer {
 	public void start_serv(int timeout) {
 		try(ServerSocketChannel s_cha=ServerSocketChannel.open()){
 			s_cha.socket().bind(new InetSocketAddress(InetAddress.getByName(this.IP_serv), this.port));
+<<<<<<< HEAD
 //			s_cha.socket().setSoTimeout(timeout);
+=======
+>>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 			s_cha.configureBlocking(false);
 			sel = Selector.open();
 			s_cha.register(sel, SelectionKey.OP_ACCEPT);
@@ -146,7 +153,11 @@ public class WinsomeServer {
 							c_cha.configureBlocking(false);
 							c_cha.register(sel, SelectionKey.OP_READ, null);
 							this.num_active_con++;
+<<<<<<< HEAD
 //							System.err.println(this.num_active_con);
+=======
+							System.err.println(this.num_active_con);
+>>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 						}
 						else if(key.isValid() && key.isReadable()) {
 							ReaderClientMessages task = new ReaderClientMessages(sel, key, this.BUFF_LIMIT, this.usernames, this.tags_in_mem, logged_users, this.users_to_upd, queue, this.wake_called);
@@ -174,12 +185,22 @@ public class WinsomeServer {
 			s_cha.socket().close();
 			s_cha.close();
 			return;
+<<<<<<< HEAD
+=======
+		} catch(BindException e) {
+			System.err.println("Change 'SERVER' IP.");
+			System.exit(0);
+>>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 		} catch(IOException e) {
 			e.printStackTrace();
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			exec_pool.shutdownNow();
+<<<<<<< HEAD
 		}
+=======
+		} 
+>>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 	}
 	//@Effects: Initializes the variables related to the multicast service
 	//@param port: port to attach to the packet
@@ -195,7 +216,12 @@ public class WinsomeServer {
 	//@Effects: terminates the server
 	public void end_me() {
 		this.can_run=false;
+<<<<<<< HEAD
 		this.sel.wakeup();
+=======
+		if(this.sel != null) this.sel.wakeup();
+		this.timer.cancel();
+>>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 	}
 	
 	public int getMcasPort() {

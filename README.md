@@ -1,5 +1,9 @@
 ## General
+<<<<<<< HEAD
 For those who seek some useful information, I want to apologize for not including a good readme.
+=======
+For those who seek some useful information, I want to apologize for not including a good readme but it will comes.
+>>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 
 ## Text
 <object data="ProgettoWINSOME_v2.pdf" type="application/pdf" width="700px" height="700px">
