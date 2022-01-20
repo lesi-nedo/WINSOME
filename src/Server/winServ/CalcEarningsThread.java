@@ -126,11 +126,7 @@ public class CalcEarningsThread extends TimerTask {
 								num_new_com =+ num_coms;
 								//checks the last time modify of the folder if greater than the last time the calculation was performed
 								//then a user has added a new comment 
-<<<<<<< HEAD
-								if(d.lastModified() >=old_last_calc) {
-=======
 								if(d.lastModified() > old_last_calc) {
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 									this.users_earnings.put(d.getName(), 0.0);//we add to hashmap all new commentators
 									second_arg=+2/(1+Math.pow(Math.E, -(num_coms-1)));
 								}
@@ -190,11 +186,7 @@ public class CalcEarningsThread extends TimerTask {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			} finally {
-<<<<<<< HEAD
-				lock_read.unlock();
-=======
 				if(lock_read != null) lock_read.unlock();
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 			}
 			
 		}
@@ -207,10 +199,7 @@ public class CalcEarningsThread extends TimerTask {
 			JsonParser jsonPar2=null;
 			JsonGenerator jsonGen2=null;
 			JsonToken curr_tok = null;
-<<<<<<< HEAD
-=======
 			double curr_val=0.0d;
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 			try {
 				jsonPar2 = jsonFact.createParser(file);
 				jsonGen2= jsonFact.createGenerator(temp_file, StaticNames.ENCODING);
@@ -218,13 +207,10 @@ public class CalcEarningsThread extends TimerTask {
 				curr_tok = jsonPar2.nextToken();
 				if(curr_tok != null) {
 					jsonGen2.copyCurrentEvent(jsonPar2);
-<<<<<<< HEAD
-=======
 					jsonPar2.nextToken();
 					jsonPar2.nextToken();
 					curr_val = Double.valueOf(jsonPar2.getText());
 					jsonGen2.writeNumberField("value", e+curr_val);
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 					jsonGen2.writeNumberField("value", e);
 					jsonGen2.writeNumberField("timestamp", System.currentTimeMillis());
 					while(jsonPar2.nextToken()!=JsonToken.END_OBJECT)
@@ -242,10 +228,7 @@ public class CalcEarningsThread extends TimerTask {
 				e1.printStackTrace();
 			}
 		});
-<<<<<<< HEAD
-=======
 		users_earnings.clear();
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 		try {
 			//writes to the group
 			ByteBuffer buf = ByteBuffer.allocate(StaticNames.MSG_NOTIFY_MULTICAS.length());

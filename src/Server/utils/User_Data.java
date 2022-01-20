@@ -97,10 +97,7 @@ public class User_Data {
 		jsonGen = jsonFact.createGenerator(file, StaticNames.ENCODING);
 		jsonGen.useDefaultPrettyPrinter();
 		jsonGen.writeStartObject();
-<<<<<<< HEAD
-=======
-		jsonGen.writeNumberField("value", 0.0);
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
+		jsonGen.writeNumberField("value", 0.0d);
 		jsonGen.writeEndObject();
 		jsonGen.flush();
 		jsonGen.close();

@@ -208,20 +208,13 @@ class ClientTest {
 	@DisplayName("test client")
 	@RepeatedTest(10)
 	void test_client() throws InterruptedException {
-<<<<<<< HEAD
-		String[] CONFS= {"SERVER", "TCPPORT", "REGHOST", "REGPORT", "TIMEOUT", "NAME_SIGN_REG", "NAME_CALLBACK_UPFOL"}; //all configurations accepted
-=======
 		String[] CONFS= {"SERVER", "TCPPORT", "REGHOST", "REGPORT", "TIMEOUT", "NAME_SIGN_REG", "NAME_CALLBACK_UPFOL", "NAME_NET_INTER"}; //all configurations accepted
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 		String DEFAULT_SERV="192.168.1.24";
 		int DEFAULT_TCPPORT=6666;
 		String DEFAULT_REGHOST="localhost";
 		int DEFAULT_REGPORT=7777;
 		int DEFAULT_TIMEOUT=1000;
-<<<<<<< HEAD
-=======
 		String DEFAULT_NAME_NET_INTER="wlo1";
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 		int FAILURE_STAT_CODE=0;
 		String DEFAULT_NAME_SIGN_REG="SIGN_IN";
 		String DEFAULT_NAME_CALLBACK_UPFOL="UPDATED_ME";
@@ -233,10 +226,7 @@ class ClientTest {
 		String NAME_CALLBACK_UPFOL=null;
 		int TCPPORT=0;
 		int TIMEOUT = 0;
-<<<<<<< HEAD
-=======
 		String NAME_NET_INTER="";
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 		int locked=0;
 		Set<String> all_followers=new HashSet<String>();
 		Sign_In_Interface sign_r;
@@ -268,12 +258,9 @@ class ClientTest {
 			NAME_SIGN_REG = conf == null ? DEFAULT_NAME_SIGN_REG : conf;
 			conf = confs.getConf("NAME_CALLBACK_UPFOL");
 			NAME_CALLBACK_UPFOL = conf == null ? DEFAULT_NAME_CALLBACK_UPFOL : conf;
-<<<<<<< HEAD
-=======
 			conf = confs.getConf("NAME_NET_INTER");
 			NAME_NET_INTER = conf== null ? DEFAULT_NAME_NET_INTER : conf;
 		
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 		} catch (IOException | EmptyFileException | IllegalFileFormatException e) {
 			// TODO Auto-generated catch block
 			System.out.println("Please fix the configuration file than rerun me.");
@@ -287,11 +274,7 @@ class ClientTest {
 			upd_foll_r = (FollowersInterface) registry.lookup(NAME_CALLBACK_UPFOL);
 			callObj = new ReceiveUpdates(all_followers);
 			stub = (ReceiveUpdatesInterface) UnicastRemoteObject.exportObject(callObj, 0);
-<<<<<<< HEAD
-			inter = new InterWithServ(sign_r, cl_sk, IP, upd_foll_r, stub, username_wrp, all_followers, TIMEOUT);
-=======
 			inter = new InterWithServ(sign_r, cl_sk, IP, upd_foll_r, stub, username_wrp, all_followers, TIMEOUT, NAME_NET_INTER);
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 			String username = null;
 			String password = null;
 			Random rand = new Random();

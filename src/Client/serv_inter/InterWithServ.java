@@ -132,10 +132,7 @@ public class InterWithServ {
 	private Set<String> all_followers;
 	private int timeout;
 	private ReaderNotifCalc mcast_not;
-<<<<<<< HEAD
-=======
 	private String NAME_NET_INTER;
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 	
 	//@Effects: initializes of the object
 	//@param sign: the interface of the sign up service
@@ -146,14 +143,9 @@ public class InterWithServ {
 	//@param username_wrp: wrapper for the username and thread that is waiting for the datagrams.
 	//@param all_followers: the empty set where all followers will be saved
 	//@param timeout: the timeout for the socket cl_Skt
-<<<<<<< HEAD
-	public InterWithServ (Sign_In_Interface sign, SocketChannel cl_skt, String IP, FollowersInterface serv_service, ReceiveUpdatesInterface stub, 
-			UsernameWrp username_wrp, Set<String> all_followers, int timeout) {
-=======
 	//@param NAME_NET_INTE: name of the network interface
 	public InterWithServ (Sign_In_Interface sign, SocketChannel cl_skt, String IP, FollowersInterface serv_service, ReceiveUpdatesInterface stub, 
 			UsernameWrp username_wrp, Set<String> all_followers, int timeout, String NAME_NET_INTER) {
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 		this.sign = sign;
 		this.metrs=new HttpTransportMetricsImpl();
 		this.ses_in=new SessionInputBufferImpl(this.metrs, BUFF_SIZE);
@@ -166,10 +158,7 @@ public class InterWithServ {
 		this.username_wrp=username_wrp;
 		this.all_followers=all_followers;
 		this.timeout=timeout;
-<<<<<<< HEAD
-=======
 		this.NAME_NET_INTER=NAME_NET_INTER;
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 	}
 	
 	//@Effects: method that sends the request to the server
@@ -238,11 +227,8 @@ public class InterWithServ {
 			System.err.println("Username already exists.");
 		} catch (TooManyTagsException e) {
 			System.err.println("Incorrect input");
-<<<<<<< HEAD
-=======
 		} catch (StringIndexOutOfBoundsException e) {
 			System.err.println("Please provide the tags");
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -530,10 +516,6 @@ public class InterWithServ {
 				req  = create_req(POST, URI_LOGIN);
 				username = toks.nextToken();
 				password = toks.nextToken();
-<<<<<<< HEAD
-				this.serv_service.registerMe(username, this.stub);//inserts for the callback
-=======
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 				jsonFact = new JsonFactory();
 				file_foll = new File(StaticNames_Client.PATH_TO_CLIENT+username+StaticNames_Client.NAME_FILE_FOLL);
 				jsonPar = null;
@@ -547,10 +529,7 @@ public class InterWithServ {
 					}
 				}
 				jsonPar.close();
-<<<<<<< HEAD
-=======
 				this.serv_service.registerMe(username, this.stub);//inserts for the callback
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 				ent = new BasicHttpEntity();
 				json = "{\"username\":\"" + username + "\", \"password\":\"" + password+ "\"}";
 				stream = new ByteArrayInputStream(json.getBytes());
@@ -570,11 +549,7 @@ public class InterWithServ {
 					 this.mcast_port = Integer.valueOf(m.group(1));
 					 m.find();
 					 this.mcast_group = InetAddress.getByName(m.group(1).replaceFirst("\"", ""));
-<<<<<<< HEAD
-					 this.mcast_not = new ReaderNotifCalc(this.mcast_port, this.mcast_group, timeout);
-=======
 					 this.mcast_not = new ReaderNotifCalc(this.mcast_port, this.mcast_group, timeout, this.NAME_NET_INTER);
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 					 this.username_wrp.set_thread(new Thread(mcast_not));
 					 this.username_wrp.get_thread().start();
 				 }

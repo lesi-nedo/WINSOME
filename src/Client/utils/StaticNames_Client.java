@@ -11,8 +11,5 @@ public class StaticNames_Client {
 	public static final String NAME_CONF_FILE="src/Client/conf_file.txt";
 	public static final String PATH_TO_CLIENT="src/Client/Users/";
 	public static final JsonEncoding ENCODING=JsonEncoding.UTF16_BE;
-<<<<<<< HEAD
-=======
 	public static final String PASS_SSL = "password";
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 }

@@ -1,22 +1,10 @@
 package rec_fol;
 
-<<<<<<< HEAD
-=======
-import java.rmi.server.RemoteObject;
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 import java.util.Set;
 
 import rec_fol.ReceiveUpdatesInterface;
 
-<<<<<<< HEAD
 public class ReceiveUpdates implements ReceiveUpdatesInterface {
-=======
-public class ReceiveUpdates extends RemoteObject implements ReceiveUpdatesInterface {
-	/**
-	 * 
-	 */
-	private static final long serialVersionUID = 1L;
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 	/*
 	 * Overview: Implementation of the remote object
 	 */

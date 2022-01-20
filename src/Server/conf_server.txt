@@ -1,10 +1,6 @@
 # COMENT
-<<<<<<< HEAD
-SERVER=10.102.29.64
-=======
 #192.168.1.24
 SERVER=10.102.12.90
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 TCPPORT=5959
 MULTICAST=239.255.32.32
 MCASTPORT=44444

@@ -1,10 +1,7 @@
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-<<<<<<< HEAD
-=======
 import java.net.ConnectException;
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -13,16 +10,9 @@ import java.rmi.NotBoundException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
-<<<<<<< HEAD
-import java.util.HashSet;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
-
-=======
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 import javax.rmi.ssl.SslRMIClientSocketFactory;
 
 import notify_client.FollowersInterface;
@@ -43,11 +33,7 @@ public class WinsomeClientMain {
 	 * Overview: implementation of the client 
 	 */
 	
-<<<<<<< HEAD
-	private static final String[] CONFS= {"SERVER", "TCPPORT", "REGHOST", "REGPORT", "TIMEOUT", "NAME_SIGN_REG", "NAME_CALLBACK_UPFOL"}; //all configurations accepted
-=======
 	public static final String[] CONFS= {"SERVER", "TCPPORT", "REGHOST", "REGPORT", "TIMEOUT", "NAME_SIGN_REG", "NAME_CALLBACK_UPFOL", "NAME_NET_INTER"}; //all configurations accepted
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 	private static final  String DEFAULT_SERV="192.168.1.24";
 	private static final int DEFAULT_TCPPORT=6666;
 	private static final String DEFAULT_REGHOST="localhost";
@@ -57,10 +43,7 @@ public class WinsomeClientMain {
 	private static final String DEFAULT_NAME_SIGN_REG="SIGN_IN";
 	private static final String DEFAULT_NAME_CALLBACK_UPFOL="UPDATED_ME";
 	private static final String EXIT_CMD="exit";
-<<<<<<< HEAD
-=======
 	private static final String DEFAULT_NAME_NET_INTER="wlo1";
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 	
 	public static void main(String[] arg) {
 		String conf = null; //holds the configuration value
@@ -71,12 +54,8 @@ public class WinsomeClientMain {
 		String NAME_CALLBACK_UPFOL=null;//the name of the updates about new followers
 		int TCPPORT=0;//port associated to the server
 		int TIMEOUT = 0;//timeout for the socket
-<<<<<<< HEAD
-		Set<String> all_followers=new HashSet<String>(); //in this variable are stored all followers than when a user logs out it gets transferred to a json file
-=======
 		String NAME_NET_INTER=""; //the name of the network interface
 		Set<String> all_followers= (new ConcurrentHashMap<>()).newKeySet(); //in this variable are stored all followers than when a user logs out it gets transferred to a json file
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 		Sign_In_Interface sign_r; //the interface of the service
 		Registry registry = null;
 		FollowersInterface upd_foll_r;
@@ -112,35 +91,23 @@ public class WinsomeClientMain {
 			NAME_SIGN_REG = conf == null ? DEFAULT_NAME_SIGN_REG : conf;
 			conf = confs.getConf("NAME_CALLBACK_UPFOL");
 			NAME_CALLBACK_UPFOL = conf == null ? DEFAULT_NAME_CALLBACK_UPFOL : conf;
-<<<<<<< HEAD
-=======
 			conf = confs.getConf("NAME_NET_INTER");
 			NAME_NET_INTER = conf== null ? DEFAULT_NAME_NET_INTER : conf;
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 		} catch (IOException | EmptyFileException | IllegalFileFormatException e) {
 			// TODO Auto-generated catch block
 			System.out.println("Please fix the configuration file than rerun me.");
 			e.printStackTrace();
 			System.exit(FAILURE_STAT_CODE);
 		}
-<<<<<<< HEAD
-		try( SocketChannel cl_sk = SocketChannel.open(new InetSocketAddress(InetAddress.getByName(SERVER), TCPPORT)); ) {
-//			cl_sk.socket().setSoTimeout(TIMEOUT);
-=======
 		System.err.println("Trying to connect to the server....");
 		try( SocketChannel cl_sk = SocketChannel.open(new InetSocketAddress(InetAddress.getByName(SERVER), TCPPORT)); ) {
 			System.err.println("Connected");
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 			registry = LocateRegistry.getRegistry(REGHOST, REGPORT, new SslRMIClientSocketFactory());
 			sign_r = (Sign_In_Interface) registry.lookup(NAME_SIGN_REG);
 			upd_foll_r = (FollowersInterface) registry.lookup(NAME_CALLBACK_UPFOL);
 			callObj = new ReceiveUpdates(all_followers);
 			stub = (ReceiveUpdatesInterface) UnicastRemoteObject.exportObject(callObj, 0);
-<<<<<<< HEAD
-			inter = new InterWithServ(sign_r, cl_sk, IP, upd_foll_r, stub, username_wrp, all_followers, TIMEOUT);
-=======
 			inter = new InterWithServ(sign_r, cl_sk, IP, upd_foll_r, stub, username_wrp, all_followers, TIMEOUT, NAME_NET_INTER);
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 			cons_reader=new BufferedReader(new InputStreamReader(System.in));
 			while(!exit.get()) {
 				System.out.println("Ready: ");
@@ -159,11 +126,8 @@ public class WinsomeClientMain {
 				}
 			}
 			
-<<<<<<< HEAD
-=======
 		} catch(ConnectException e) {
 			System.err.println("Server is down.");
->>>>>>> 0d8d0c3 (updated some stuff, fixed a bug in CalcEarningsThread)
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
